@@ -1,6 +1,6 @@
 {
   "name": "@euromail/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official TypeScript SDK for EuroMail transactional email service",
   "type": "module",
   "main": "dist/index.js",
