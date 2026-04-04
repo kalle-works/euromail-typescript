@@ -8,7 +8,9 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -31,12 +33,11 @@
   "author": "Kalle Works <info@kalle.works>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kalle-works/euromail.git",
-    "directory": "sdks/typescript"
+    "url": "https://github.com/kalle-works/euromail-typescript.git"
   },
   "homepage": "https://euromail.dev",
   "bugs": {
-    "url": "https://github.com/kalle-works/euromail/issues"
+    "url": "https://github.com/kalle-works/euromail-typescript/issues"
   },
   "publishConfig": {
     "access": "public"
