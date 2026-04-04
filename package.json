@@ -1,0 +1,52 @@
+{
+  "name": "@euromail/sdk",
+  "version": "0.1.1",
+  "description": "Official TypeScript SDK for EuroMail transactional email service",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "euromail",
+    "email",
+    "transactional",
+    "smtp"
+  ],
+  "license": "MIT",
+  "author": "Kalle Works <info@kalle.works>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kalle-works/euromail.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://euromail.dev",
+  "bugs": {
+    "url": "https://github.com/kalle-works/euromail/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
