@@ -260,7 +260,9 @@ export type WebhookEventType =
   | "opened"
   | "clicked"
   | "complained"
-  | "email.inbound";
+  | "email.inbound"
+  | "account.auto_paused"
+  | "insights.generated";
 
 export interface Webhook {
   id: string;
@@ -282,6 +284,7 @@ export interface Webhook {
 export type SuppressionReason =
   | "hard_bounce"
   | "complaint"
+  | "fbl"
   | "manual"
   | "unsubscribe";
 
@@ -762,6 +765,45 @@ export interface UpdateSignupFormParams {
   redirect_url?: string;
   custom_fields?: CustomField[];
   theme?: Record<string, unknown>;
+}
+
+// ---- Link Click Stats ----
+
+/** Per-link click statistics for a single email. */
+export interface LinkClickStat {
+  url: string;
+  clicks: number;
+  /** Distinct calendar days on which the link was clicked. */
+  unique_clicks: number;
+  last_clicked_at: string;
+}
+
+// ---- Insights Types ----
+
+export type InsightSeverity = "info" | "warn" | "critical";
+export type InsightArea = "deliverability" | "reputation" | "performance" | "security";
+
+export interface InsightFinding {
+  severity: InsightSeverity;
+  area: InsightArea;
+  observation: string;
+  recommendation: string;
+}
+
+/** An AI-generated operational insights report. */
+export interface InsightReport {
+  id: string;
+  account_id: string | null;
+  generated_at: string;
+  period_start: string;
+  period_end: string;
+  model: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  summary: string;
+  findings: InsightFinding[];
+  raw_markdown: string | null;
+  acknowledged_at: string | null;
 }
 
 // ---- Audit Log Types ----

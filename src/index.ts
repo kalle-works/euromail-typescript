@@ -93,4 +93,9 @@ export type {
   CustomField,
   CreateSignupFormParams,
   UpdateSignupFormParams,
+  LinkClickStat,
+  InsightSeverity,
+  InsightArea,
+  InsightFinding,
+  InsightReport,
 } from "./types.js";

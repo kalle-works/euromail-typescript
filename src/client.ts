@@ -68,6 +68,8 @@ import type {
   PortalResponse,
   GdprExportResponse,
   GdprEraseResponse,
+  LinkClickStat,
+  InsightReport,
 } from "./types.js";
 
 export interface EuroMailConfig {
@@ -148,6 +150,13 @@ export class EuroMail {
     const result = await this.post<{ data: SendEmailResponse }>(
       `/v1/emails/${encodeURIComponent(emailId)}/cancel`,
       {}
+    );
+    return result.data;
+  }
+
+  async getEmailLinks(emailId: string): Promise<LinkClickStat[]> {
+    const result = await this.get<{ data: LinkClickStat[] }>(
+      `/v1/emails/${encodeURIComponent(emailId)}/links`
     );
     return result.data;
   }
@@ -623,6 +632,12 @@ export class EuroMail {
   async createBillingPortal(params: PortalParams): Promise<PortalResponse> {
     const result = await this.post<{ data: PortalResponse }>("/v1/billing/portal", params);
     return result.data;
+  }
+
+  // ---- Insights Methods ----
+
+  async generateInsights(): Promise<InsightReport> {
+    return this.post<InsightReport>("/v1/insights/generate", {});
   }
 
   // ---- GDPR Methods ----
