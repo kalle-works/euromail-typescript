@@ -73,7 +73,7 @@ import type {
 } from "./types.js";
 
 export interface EuroMailConfig {
-  apiKey: string;
+  apiKey?: string;
   baseUrl?: string;
   timeout?: number;
 }
@@ -94,11 +94,17 @@ export class EuroMail {
   private readonly baseUrl: string;
   private readonly timeout: number;
 
-  constructor(config: EuroMailConfig) {
-    if (!config.apiKey) {
-      throw new Error("apiKey is required");
+  constructor(config: EuroMailConfig = {}) {
+    const resolvedApiKey =
+      config.apiKey ??
+      (typeof process !== "undefined" ? process.env?.EUROMAIL_API_KEY : undefined);
+
+    if (!resolvedApiKey) {
+      throw new Error(
+        "EuroMail API key is required. Pass it as `apiKey` in the constructor config or set the EUROMAIL_API_KEY environment variable."
+      );
     }
-    this.apiKey = config.apiKey;
+    this.apiKey = resolvedApiKey;
     this.baseUrl = resolveBaseUrl(config.baseUrl).replace(/\/+$/, "");
     if (!this.baseUrl.startsWith("https://") && !this.baseUrl.startsWith("http://localhost") && !this.baseUrl.startsWith("http://127.0.0.1")) {
       console.warn("WARNING: EuroMail base URL does not use HTTPS. API keys will be sent in cleartext.");
