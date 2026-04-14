@@ -98,4 +98,11 @@ export type {
   InsightArea,
   InsightFinding,
   InsightReport,
+  AgentMailbox,
+  CreateAgentMailboxParams,
+  ListAgentMailboxesParams,
+  MailboxMessage,
+  ListMailboxMessagesParams,
+  WaitForNextMessageParams,
+  LeasedMessage,
 } from "./types.js";
