@@ -70,6 +70,13 @@ import type {
   GdprEraseResponse,
   LinkClickStat,
   InsightReport,
+  AgentMailbox,
+  CreateAgentMailboxParams,
+  ListAgentMailboxesParams,
+  MailboxMessage,
+  ListMailboxMessagesParams,
+  WaitForNextMessageParams,
+  LeasedMessage,
 } from "./types.js";
 
 export interface EuroMailConfig {
@@ -654,6 +661,120 @@ export class EuroMail {
 
   async gdprErase(email: string): Promise<GdprEraseResponse> {
     return this.request<GdprEraseResponse>("DELETE", `/v1/gdpr/erase?email=${encodeURIComponent(email)}`);
+  }
+
+  // ---- Agent Mailbox Methods ----
+
+  async createMailbox(params?: CreateAgentMailboxParams): Promise<AgentMailbox> {
+    const result = await this.post<{ data: AgentMailbox }>("/v1/agent-mailboxes", params ?? {});
+    return result.data;
+  }
+
+  async listMailboxes(params?: ListAgentMailboxesParams): Promise<AgentMailbox[]> {
+    const query = new URLSearchParams();
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    const result = await this.get<{ data: AgentMailbox[] }>(
+      `/v1/agent-mailboxes${qs ? `?${qs}` : ""}`
+    );
+    return result.data;
+  }
+
+  async getMailbox(id: string): Promise<AgentMailbox> {
+    const result = await this.get<{ data: AgentMailbox }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(id)}`
+    );
+    return result.data;
+  }
+
+  async deleteMailbox(id: string): Promise<void> {
+    await this.delete(`/v1/agent-mailboxes/${encodeURIComponent(id)}`);
+  }
+
+  async listMessages(
+    mailboxId: string,
+    params?: ListMailboxMessagesParams
+  ): Promise<MailboxMessage[]> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    const result = await this.get<{ data: MailboxMessage[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages${qs ? `?${qs}` : ""}`
+    );
+    return result.data;
+  }
+
+  /**
+   * Long-poll for the next message in a mailbox. Acquires a lease that must be
+   * released via `ackMessage` (success) or `nackMessage` (retry). Returns
+   * `null` when the server responds with HTTP 408 (no message arrived within
+   * the timeout window).
+   */
+  async waitForNextMessage(
+    mailboxId: string,
+    params?: WaitForNextMessageParams
+  ): Promise<LeasedMessage | null> {
+    const query = new URLSearchParams();
+    if (params?.timeout !== undefined) query.set("timeout", String(params.timeout));
+    const qs = query.toString();
+    const path = `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/next${qs ? `?${qs}` : ""}`;
+
+    // Dedicated code path: the long-poll endpoint returns HTTP 408 with no body
+    // when no message arrives. We treat that as a non-error `null` result so
+    // callers can simply re-invoke in a loop without catching.
+    const url = `${this.baseUrl}${path}`;
+    const controller = new AbortController();
+    // Give the network a little slack on top of the server-side long-poll
+    // timeout so the request isn't aborted right before the server responds.
+    const serverTimeoutMs = (params?.timeout ?? 30) * 1000;
+    const clientTimeoutMs = Math.max(this.timeout, serverTimeoutMs + 5_000);
+    const timer = setTimeout(() => controller.abort(), clientTimeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          Accept: "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (response.status === 408) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw await EuroMailError.fromResponse(response);
+      }
+
+      return (await response.json()) as LeasedMessage;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async deleteMessage(mailboxId: string, messageId: string): Promise<void> {
+    await this.delete(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}`
+    );
+  }
+
+  async ackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
+    await this.post(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/ack`,
+      { lease_token: leaseToken }
+    );
+  }
+
+  async nackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
+    await this.post(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/nack`,
+      { lease_token: leaseToken }
+    );
   }
 
   // ---- HTTP Helpers ----

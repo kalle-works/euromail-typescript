@@ -449,43 +449,41 @@ try {
 
 ## Agent Mailboxes
 
-Agent mailboxes provide persistent email addresses for AI agents with at-least-once message delivery via a lease/ack/nack model. Native SDK support is coming in a future release. In the meantime, use `fetch` directly:
+Agent mailboxes provide persistent email addresses for AI agents with at-least-once message delivery via a lease/ack/nack model. The SDK wraps the full lifecycle natively:
 
 ```typescript
-const API = "https://api.euromail.dev";
-const KEY = process.env.EUROMAIL_API_KEY!;
-const headers = { "X-EuroMail-Api-Key": KEY, "Content-Type": "application/json" };
+import { EuroMail } from "@euromail/sdk";
+
+const euromail = new EuroMail({ apiKey: process.env.EUROMAIL_API_KEY });
 
 // Create a mailbox
-const mailbox = await fetch(`${API}/v1/agent-mailboxes`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({ display_name: "Support Agent" }),
-}).then(r => r.json()).then(b => b.data);
+const mailbox = await euromail.createMailbox({ display_name: "Support Agent" });
 
-// Long-poll for the next message (acquires a 5-minute lease)
-const res = await fetch(`${API}/v1/agent-mailboxes/${mailbox.id}/messages/next?timeout=30`, { headers });
-if (res.status === 408) return; // no message, poll again
-const { data: msg, lease_token } = await res.json();
+// Long-poll loop for incoming messages
+while (true) {
+  const leased = await euromail.waitForNextMessage(mailbox.id, { timeout: 30 });
+  if (!leased) continue; // 408 timeout — no message arrived, poll again
 
-try {
-  await handle(msg);
-  // Ack when done — message will not be redelivered
-  await fetch(`${API}/v1/agent-mailboxes/${mailbox.id}/messages/${msg.id}/ack`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ lease_token }),
-  });
-} catch (err) {
-  // Nack to return the message to the queue for retry
-  await fetch(`${API}/v1/agent-mailboxes/${mailbox.id}/messages/${msg.id}/nack`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ lease_token }),
-  });
-  throw err;
+  const { data: msg, lease_token } = leased;
+  try {
+    await handle(msg);
+    // Ack when done — message will not be redelivered
+    await euromail.ackMessage(mailbox.id, msg.id, lease_token);
+  } catch (err) {
+    // Nack to return the message to the queue for retry
+    await euromail.nackMessage(mailbox.id, msg.id, lease_token);
+    throw err;
+  }
 }
 ```
+
+Other mailbox methods:
+
+- `listMailboxes({ limit, offset })` — list mailboxes on the account
+- `getMailbox(id)` — fetch a single mailbox
+- `deleteMailbox(id)` — remove a mailbox
+- `listMessages(mailboxId, { status, limit, offset })` — list messages without acquiring a lease
+- `deleteMessage(mailboxId, messageId)` — permanently delete a message
 
 See the [Agent Mailboxes guide](https://euromail.dev/docs/guides/agent-mailboxes/) for the full flow, duplicate handling, and horizontal scaling patterns.
 
