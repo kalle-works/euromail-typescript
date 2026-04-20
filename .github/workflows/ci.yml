@@ -35,6 +35,8 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
       - run: npm run build --if-present
+      # Node 22 ships with npm 10.x. OIDC trusted publishing requires npm >= 11.5.1.
+      - run: npm install -g npm@latest
       - name: Publish if version changed
         run: |
           LOCAL=$(node -p "require('./package.json').version")
