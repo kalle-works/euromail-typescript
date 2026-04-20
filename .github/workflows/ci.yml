@@ -43,7 +43,6 @@ jobs:
             echo "Version $LOCAL already published, skipping"
           else
             echo "Publishing $LOCAL (registry has $REMOTE)"
+            unset NODE_AUTH_TOKEN
             npm publish --access public --provenance
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
