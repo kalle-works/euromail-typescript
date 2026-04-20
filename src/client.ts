@@ -1,84 +1,84 @@
 import { EuroMailError } from "./errors.js";
-import { SDK_VERSION } from "./version.js";
 import type {
   Account,
-  SendEmailParams,
-  SendEmailResponse,
-  SendBatchParams,
-  SendBatchResponse,
-  BroadcastParams,
-  BroadcastResponse,
-  Email,
-  EmailDetail,
-  ListEmailsParams,
-  Template,
-  CreateTemplateParams,
-  UpdateTemplateParams,
-  Domain,
-  DomainVerificationResult,
-  TrackingDomainResponse,
-  TrackingDomainVerification,
-  Webhook,
-  CreateWebhookParams,
-  UpdateWebhookParams,
-  WebhookTestResponse,
-  Suppression,
-  ListParams,
-  PaginatedResponse,
-  ContactList,
-  CreateContactListParams,
-  UpdateContactListParams,
-  Contact,
   AddContactParams,
-  BulkAddContactsParams,
-  BulkAddContactsResponse,
-  ListContactsParams,
+  AgentMailbox,
   AnalyticsQuery,
   AnalyticsSummary,
-  TimeseriesQuery,
-  TimeseriesResponse,
-  DomainAnalyticsQuery,
-  DomainAnalyticsResponse,
-  AuditLog,
-  DeadLetter,
-  ListDeadLettersParams,
-  InboundEmail,
-  InboundRoute,
-  CreateInboundRouteParams,
-  UpdateInboundRouteParams,
-  SubAccount,
-  CreateSubAccountParams,
-  UpdateSubAccountParams,
   ApiKey,
   ApiKeyCreated,
-  CreateApiKeyParams,
-  Newsletter,
-  CreateNewsletterParams,
-  UpdateNewsletterParams,
-  NewsletterSendResponse,
-  SignupForm,
-  CreateSignupFormParams,
-  UpdateSignupFormParams,
-  EmailValidation,
-  Operation,
+  AuditLog,
   BillingPlan,
-  Subscription,
+  BroadcastParams,
+  BroadcastResponse,
+  BulkAddContactsParams,
+  BulkAddContactsResponse,
   CheckoutParams,
   CheckoutResponse,
+  Contact,
+  ContactList,
+  CreateAgentMailboxParams,
+  CreateApiKeyParams,
+  CreateContactListParams,
+  CreateInboundRouteParams,
+  CreateNewsletterParams,
+  CreateSignupFormParams,
+  CreateSubAccountParams,
+  CreateTemplateParams,
+  CreateWebhookParams,
+  DeadLetter,
+  Domain,
+  DomainAnalyticsQuery,
+  DomainAnalyticsResponse,
+  DomainVerificationResult,
+  Email,
+  EmailDetail,
+  EmailValidation,
+  GdprEraseResponse,
+  GdprExportResponse,
+  InboundEmail,
+  InboundRoute,
+  InsightReport,
+  LeasedMessage,
+  LinkClickStat,
+  ListAgentMailboxesParams,
+  ListContactsParams,
+  ListDeadLettersParams,
+  ListEmailsParams,
+  ListMailboxMessagesParams,
+  ListParams,
+  MailboxMessage,
+  Newsletter,
+  NewsletterSendResponse,
+  Operation,
+  PaginatedResponse,
   PortalParams,
   PortalResponse,
-  GdprExportResponse,
-  GdprEraseResponse,
-  LinkClickStat,
-  InsightReport,
-  AgentMailbox,
-  CreateAgentMailboxParams,
-  ListAgentMailboxesParams,
-  MailboxMessage,
-  ListMailboxMessagesParams,
+  SendBatchParams,
+  SendBatchResponse,
+  SendEmailParams,
+  SendEmailResponse,
+  SignupForm,
+  SubAccount,
+  Subscription,
+  Suppression,
+  Template,
+  TimeseriesQuery,
+  TimeseriesResponse,
+  TrackingDomainResponse,
+  TrackingDomainVerification,
+  UpdateContactListParams,
+  UpdateInboundRouteParams,
+  UpdateNewsletterParams,
+  UpdateSignupFormParams,
+  UpdateSubAccountParams,
+  UpdateTemplateParams,
+  UpdateWebhookParams,
   WaitForNextMessageParams,
-  LeasedMessage,
+  Webhook,
+  WebhookTestResponse,
 } from "./types.js";
+import { SDK_VERSION } from "./version.js";
 
 export interface EuroMailConfig {
   apiKey?: string;
@@ -123,18 +123,23 @@ export class EuroMail {
 
   constructor(config: EuroMailConfig = {}) {
     const resolvedApiKey =
-      config.apiKey ??
-      (typeof process !== "undefined" ? process.env?.EUROMAIL_API_KEY : undefined);
+      config.apiKey ?? (typeof process !== "undefined" ? process.env?.EUROMAIL_API_KEY : undefined);
 
     if (!resolvedApiKey) {
       throw new Error(
-        "EuroMail API key is required. Pass it as `apiKey` in the constructor config or set the EUROMAIL_API_KEY environment variable."
+        "EuroMail API key is required. Pass it as `apiKey` in the constructor config or set the EUROMAIL_API_KEY environment variable.",
       );
     }
     this.apiKey = resolvedApiKey;
     this.baseUrl = resolveBaseUrl(config.baseUrl).replace(/\/+$/, "");
-    if (!this.baseUrl.startsWith("https://") && !this.baseUrl.startsWith("http://localhost") && !this.baseUrl.startsWith("http://127.0.0.1")) {
-      console.warn("WARNING: EuroMail base URL does not use HTTPS. API keys will be sent in cleartext.");
+    if (
+      !this.baseUrl.startsWith("https://") &&
+      !this.baseUrl.startsWith("http://localhost") &&
+      !this.baseUrl.startsWith("http://127.0.0.1")
+    ) {
+      console.warn(
+        "WARNING: EuroMail base URL does not use HTTPS. API keys will be sent in cleartext.",
+      );
     }
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES);
@@ -164,15 +169,8 @@ export class EuroMail {
    * to safely retry on transient failures (network errors, 429, 5xx); without
    * a key, POSTs are sent once and not retried.
    */
-  async sendEmail(
-    params: SendEmailParams,
-    options?: RequestOptions,
-  ): Promise<SendEmailResponse> {
-    const result = await this.post<{ data: SendEmailResponse }>(
-      "/v1/emails",
-      params,
-      options,
-    );
+  async sendEmail(params: SendEmailParams, options?: RequestOptions): Promise<SendEmailResponse> {
+    const result = await this.post<{ data: SendEmailResponse }>("/v1/emails", params, options);
     return result.data;
   }
 
@@ -180,15 +178,14 @@ export class EuroMail {
    * Send a batch of emails in one request. Pass `options.idempotencyKey` to
    * allow the SDK to safely retry on transient failures.
    */
-  async sendBatch(
-    params: SendBatchParams,
-    options?: RequestOptions,
-  ): Promise<SendBatchResponse> {
+  async sendBatch(params: SendBatchParams, options?: RequestOptions): Promise<SendBatchResponse> {
     return this.post<SendBatchResponse>("/v1/emails/batch", params, options);
   }
 
   async getEmail(emailId: string): Promise<EmailDetail> {
-    const result = await this.get<{ data: EmailDetail }>(`/v1/emails/${encodeURIComponent(emailId)}`);
+    const result = await this.get<{ data: EmailDetail }>(
+      `/v1/emails/${encodeURIComponent(emailId)}`,
+    );
     return result.data;
   }
 
@@ -203,14 +200,14 @@ export class EuroMail {
   async cancelScheduledEmail(emailId: string): Promise<SendEmailResponse> {
     const result = await this.post<{ data: SendEmailResponse }>(
       `/v1/emails/${encodeURIComponent(emailId)}/cancel`,
-      {}
+      {},
     );
     return result.data;
   }
 
   async getEmailLinks(emailId: string): Promise<LinkClickStat[]> {
     const result = await this.get<{ data: LinkClickStat[] }>(
-      `/v1/emails/${encodeURIComponent(emailId)}/links`
+      `/v1/emails/${encodeURIComponent(emailId)}/links`,
     );
     return result.data;
   }
@@ -228,12 +225,17 @@ export class EuroMail {
   }
 
   async getTemplate(templateId: string): Promise<Template> {
-    const result = await this.get<{ data: Template }>(`/v1/templates/${encodeURIComponent(templateId)}`);
+    const result = await this.get<{ data: Template }>(
+      `/v1/templates/${encodeURIComponent(templateId)}`,
+    );
     return result.data;
   }
 
   async updateTemplate(templateId: string, params: UpdateTemplateParams): Promise<Template> {
-    const result = await this.put<{ data: Template }>(`/v1/templates/${encodeURIComponent(templateId)}`, params);
+    const result = await this.put<{ data: Template }>(
+      `/v1/templates/${encodeURIComponent(templateId)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -263,7 +265,7 @@ export class EuroMail {
   async verifyDomain(domainId: string): Promise<DomainVerificationResult> {
     const result = await this.post<{ data: DomainVerificationResult }>(
       `/v1/domains/${encodeURIComponent(domainId)}/verify`,
-      {}
+      {},
     );
     return result.data;
   }
@@ -279,24 +281,27 @@ export class EuroMail {
     return this.get<PaginatedResponse<Domain>>(`/v1/domains?${query.toString()}`);
   }
 
-  async setTrackingDomain(domainId: string, trackingDomain: string): Promise<TrackingDomainResponse> {
+  async setTrackingDomain(
+    domainId: string,
+    trackingDomain: string,
+  ): Promise<TrackingDomainResponse> {
     return this.put<TrackingDomainResponse>(
       `/v1/domains/${encodeURIComponent(domainId)}/tracking-domain`,
-      { tracking_domain: trackingDomain }
+      { tracking_domain: trackingDomain },
     );
   }
 
   async verifyTrackingDomain(domainId: string): Promise<TrackingDomainVerification> {
     return this.post<TrackingDomainVerification>(
       `/v1/domains/${encodeURIComponent(domainId)}/verify-tracking`,
-      {}
+      {},
     );
   }
 
   async removeTrackingDomain(domainId: string): Promise<Domain> {
     const result = await this.request<{ data: Domain }>(
       "DELETE",
-      `/v1/domains/${encodeURIComponent(domainId)}/tracking-domain`
+      `/v1/domains/${encodeURIComponent(domainId)}/tracking-domain`,
     );
     return result.data;
   }
@@ -309,19 +314,24 @@ export class EuroMail {
   }
 
   async getWebhook(webhookId: string): Promise<Webhook> {
-    const result = await this.get<{ data: Webhook }>(`/v1/webhooks/${encodeURIComponent(webhookId)}`);
+    const result = await this.get<{ data: Webhook }>(
+      `/v1/webhooks/${encodeURIComponent(webhookId)}`,
+    );
     return result.data;
   }
 
   async updateWebhook(webhookId: string, params: UpdateWebhookParams): Promise<Webhook> {
-    const result = await this.put<{ data: Webhook }>(`/v1/webhooks/${encodeURIComponent(webhookId)}`, params);
+    const result = await this.put<{ data: Webhook }>(
+      `/v1/webhooks/${encodeURIComponent(webhookId)}`,
+      params,
+    );
     return result.data;
   }
 
   async testWebhook(webhookId: string): Promise<WebhookTestResponse> {
     const result = await this.post<{ data: WebhookTestResponse }>(
       `/v1/webhooks/${encodeURIComponent(webhookId)}/test`,
-      {}
+      {},
     );
     return result.data;
   }
@@ -371,12 +381,17 @@ export class EuroMail {
   }
 
   async getContactList(listId: string): Promise<ContactList> {
-    const result = await this.get<{ data: ContactList }>(`/v1/contact-lists/${encodeURIComponent(listId)}`);
+    const result = await this.get<{ data: ContactList }>(
+      `/v1/contact-lists/${encodeURIComponent(listId)}`,
+    );
     return result.data;
   }
 
   async updateContactList(listId: string, params: UpdateContactListParams): Promise<ContactList> {
-    const result = await this.put<{ data: ContactList }>(`/v1/contact-lists/${encodeURIComponent(listId)}`, params);
+    const result = await this.put<{ data: ContactList }>(
+      `/v1/contact-lists/${encodeURIComponent(listId)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -387,32 +402,38 @@ export class EuroMail {
   async addContact(listId: string, params: AddContactParams): Promise<Contact> {
     const result = await this.post<{ data: Contact }>(
       `/v1/contact-lists/${encodeURIComponent(listId)}/contacts`,
-      params
+      params,
     );
     return result.data;
   }
 
-  async bulkAddContacts(listId: string, params: BulkAddContactsParams): Promise<BulkAddContactsResponse> {
+  async bulkAddContacts(
+    listId: string,
+    params: BulkAddContactsParams,
+  ): Promise<BulkAddContactsResponse> {
     const result = await this.post<{ data: BulkAddContactsResponse }>(
       `/v1/contact-lists/${encodeURIComponent(listId)}/contacts`,
-      params
+      params,
     );
     return result.data;
   }
 
-  async listContacts(listId: string, params?: ListContactsParams): Promise<PaginatedResponse<Contact>> {
+  async listContacts(
+    listId: string,
+    params?: ListContactsParams,
+  ): Promise<PaginatedResponse<Contact>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
     if (params?.per_page) query.set("per_page", String(params.per_page));
     if (params?.status) query.set("status", params.status);
     return this.get<PaginatedResponse<Contact>>(
-      `/v1/contact-lists/${encodeURIComponent(listId)}/contacts?${query.toString()}`
+      `/v1/contact-lists/${encodeURIComponent(listId)}/contacts?${query.toString()}`,
     );
   }
 
   async removeContact(listId: string, email: string): Promise<void> {
     await this.delete(
-      `/v1/contact-lists/${encodeURIComponent(listId)}/contacts/${encodeURIComponent(email)}`
+      `/v1/contact-lists/${encodeURIComponent(listId)}/contacts/${encodeURIComponent(email)}`,
     );
   }
 
@@ -466,12 +487,17 @@ export class EuroMail {
   }
 
   async getInboundRoute(id: string): Promise<InboundRoute> {
-    const result = await this.get<{ data: InboundRoute }>(`/v1/inbound-routes/${encodeURIComponent(id)}`);
+    const result = await this.get<{ data: InboundRoute }>(
+      `/v1/inbound-routes/${encodeURIComponent(id)}`,
+    );
     return result.data;
   }
 
   async updateInboundRoute(id: string, params: UpdateInboundRouteParams): Promise<InboundRoute> {
-    const result = await this.put<{ data: InboundRoute }>(`/v1/inbound-routes/${encodeURIComponent(id)}`, params);
+    const result = await this.put<{ data: InboundRoute }>(
+      `/v1/inbound-routes/${encodeURIComponent(id)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -499,7 +525,10 @@ export class EuroMail {
   }
 
   async updateSubAccount(id: string, params: UpdateSubAccountParams): Promise<SubAccount> {
-    const result = await this.patch<{ data: SubAccount }>(`/v1/accounts/${encodeURIComponent(id)}`, params);
+    const result = await this.patch<{ data: SubAccount }>(
+      `/v1/accounts/${encodeURIComponent(id)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -509,7 +538,9 @@ export class EuroMail {
 
   async getSubAccountAnalytics(id: string, query?: AnalyticsQuery): Promise<AnalyticsSummary> {
     const params = this.buildAnalyticsQuery(query);
-    return this.get<AnalyticsSummary>(`/v1/accounts/${encodeURIComponent(id)}/analytics?${params.toString()}`);
+    return this.get<AnalyticsSummary>(
+      `/v1/accounts/${encodeURIComponent(id)}/analytics?${params.toString()}`,
+    );
   }
 
   async getAggregateAnalytics(query?: AnalyticsQuery): Promise<AnalyticsSummary> {
@@ -567,10 +598,13 @@ export class EuroMail {
     await this.delete(`/v1/api-keys/${encodeURIComponent(id)}`);
   }
 
-  async createSubAccountApiKey(subAccountId: string, params: CreateApiKeyParams): Promise<ApiKeyCreated> {
+  async createSubAccountApiKey(
+    subAccountId: string,
+    params: CreateApiKeyParams,
+  ): Promise<ApiKeyCreated> {
     const result = await this.post<{ data: ApiKeyCreated }>(
       `/v1/accounts/${encodeURIComponent(subAccountId)}/api-keys`,
-      params
+      params,
     );
     return result.data;
   }
@@ -591,19 +625,22 @@ export class EuroMail {
       query.set("offset", String((page - 1) * perPage));
     }
     const qs = query.toString();
-    const result = await this.get<{ data: Newsletter[] }>(
-      `/v1/newsletters${qs ? `?${qs}` : ""}`,
-    );
+    const result = await this.get<{ data: Newsletter[] }>(`/v1/newsletters${qs ? `?${qs}` : ""}`);
     return result.data;
   }
 
   async getNewsletter(id: string): Promise<Newsletter> {
-    const result = await this.get<{ data: Newsletter }>(`/v1/newsletters/${encodeURIComponent(id)}`);
+    const result = await this.get<{ data: Newsletter }>(
+      `/v1/newsletters/${encodeURIComponent(id)}`,
+    );
     return result.data;
   }
 
   async updateNewsletter(id: string, params: UpdateNewsletterParams): Promise<Newsletter> {
-    const result = await this.put<{ data: Newsletter }>(`/v1/newsletters/${encodeURIComponent(id)}`, params);
+    const result = await this.put<{ data: Newsletter }>(
+      `/v1/newsletters/${encodeURIComponent(id)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -614,7 +651,7 @@ export class EuroMail {
   async sendNewsletter(id: string): Promise<NewsletterSendResponse> {
     const result = await this.post<{ data: NewsletterSendResponse }>(
       `/v1/newsletters/${encodeURIComponent(id)}/send`,
-      {}
+      {},
     );
     return result.data;
   }
@@ -632,12 +669,17 @@ export class EuroMail {
   }
 
   async getSignupForm(id: string): Promise<SignupForm> {
-    const result = await this.get<{ data: SignupForm }>(`/v1/signup-forms/${encodeURIComponent(id)}`);
+    const result = await this.get<{ data: SignupForm }>(
+      `/v1/signup-forms/${encodeURIComponent(id)}`,
+    );
     return result.data;
   }
 
   async updateSignupForm(id: string, params: UpdateSignupFormParams): Promise<SignupForm> {
-    const result = await this.put<{ data: SignupForm }>(`/v1/signup-forms/${encodeURIComponent(id)}`, params);
+    const result = await this.put<{ data: SignupForm }>(
+      `/v1/signup-forms/${encodeURIComponent(id)}`,
+      params,
+    );
     return result.data;
   }
 
@@ -648,7 +690,7 @@ export class EuroMail {
   async toggleSignupForm(id: string): Promise<SignupForm> {
     const result = await this.post<{ data: SignupForm }>(
       `/v1/signup-forms/${encodeURIComponent(id)}/toggle`,
-      {}
+      {},
     );
     return result.data;
   }
@@ -708,7 +750,10 @@ export class EuroMail {
   }
 
   async gdprErase(email: string): Promise<GdprEraseResponse> {
-    return this.request<GdprEraseResponse>("DELETE", `/v1/gdpr/erase?email=${encodeURIComponent(email)}`);
+    return this.request<GdprEraseResponse>(
+      "DELETE",
+      `/v1/gdpr/erase?email=${encodeURIComponent(email)}`,
+    );
   }
 
   // ---- Agent Mailbox Methods ----
@@ -724,14 +769,14 @@ export class EuroMail {
     if (params?.offset !== undefined) query.set("offset", String(params.offset));
     const qs = query.toString();
     const result = await this.get<{ data: AgentMailbox[] }>(
-      `/v1/agent-mailboxes${qs ? `?${qs}` : ""}`
+      `/v1/agent-mailboxes${qs ? `?${qs}` : ""}`,
     );
     return result.data;
   }
 
   async getMailbox(id: string): Promise<AgentMailbox> {
     const result = await this.get<{ data: AgentMailbox }>(
-      `/v1/agent-mailboxes/${encodeURIComponent(id)}`
+      `/v1/agent-mailboxes/${encodeURIComponent(id)}`,
     );
     return result.data;
   }
@@ -742,7 +787,7 @@ export class EuroMail {
 
   async listMessages(
     mailboxId: string,
-    params?: ListMailboxMessagesParams
+    params?: ListMailboxMessagesParams,
   ): Promise<MailboxMessage[]> {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
@@ -750,7 +795,7 @@ export class EuroMail {
     if (params?.offset !== undefined) query.set("offset", String(params.offset));
     const qs = query.toString();
     const result = await this.get<{ data: MailboxMessage[] }>(
-      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages${qs ? `?${qs}` : ""}`
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages${qs ? `?${qs}` : ""}`,
     );
     return result.data;
   }
@@ -763,7 +808,7 @@ export class EuroMail {
    */
   async waitForNextMessage(
     mailboxId: string,
-    params?: WaitForNextMessageParams
+    params?: WaitForNextMessageParams,
   ): Promise<LeasedMessage | null> {
     const query = new URLSearchParams();
     if (params?.timeout !== undefined) query.set("timeout", String(params.timeout));
@@ -808,21 +853,21 @@ export class EuroMail {
 
   async deleteMessage(mailboxId: string, messageId: string): Promise<void> {
     await this.delete(
-      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}`
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}`,
     );
   }
 
   async ackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
     await this.post(
       `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/ack`,
-      { lease_token: leaseToken }
+      { lease_token: leaseToken },
     );
   }
 
   async nackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
     await this.post(
       `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/nack`,
-      { lease_token: leaseToken }
+      { lease_token: leaseToken },
     );
   }
 
@@ -855,13 +900,13 @@ export class EuroMail {
         Authorization: `Bearer ${this.apiKey}`,
         "User-Agent": USER_AGENT,
       };
-      if (options.acceptJson) headers["Accept"] = "application/json";
+      if (options.acceptJson) headers.Accept = "application/json";
       if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
       const init: RequestInit = { method, headers, signal };
       if (body !== undefined) {
         headers["Content-Type"] = "application/json";
-        headers["Accept"] = "application/json";
+        headers.Accept = "application/json";
         init.body = JSON.stringify(body);
       }
 
@@ -918,7 +963,7 @@ export class EuroMail {
     if (retryAfterSeconds !== null) {
       return Math.min(retryAfterSeconds * 1000, MAX_RETRY_DELAY_MS);
     }
-    const exp = this.retryBaseDelayMs * Math.pow(2, attempt);
+    const exp = this.retryBaseDelayMs * 2 ** attempt;
     const jitter = Math.random() * this.retryBaseDelayMs;
     return Math.min(exp + jitter, MAX_RETRY_DELAY_MS);
   }
@@ -965,10 +1010,10 @@ export class EuroMail {
 
 function parseRetryAfterSeconds(header: string | null): number | null {
   if (!header) return null;
-  const asInt = parseInt(header, 10);
-  if (!isNaN(asInt)) return asInt;
+  const asInt = Number.parseInt(header, 10);
+  if (!Number.isNaN(asInt)) return asInt;
   const asDate = Date.parse(header);
-  if (isNaN(asDate)) return null;
+  if (Number.isNaN(asDate)) return null;
   const seconds = Math.max(0, Math.ceil((asDate - Date.now()) / 1000));
   return seconds;
 }

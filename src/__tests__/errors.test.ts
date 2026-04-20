@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
-import { AuthenticationError, ValidationError, RateLimitError, EuroMailError } from "../errors.js";
+import { AuthenticationError, EuroMailError, RateLimitError, ValidationError } from "../errors.js";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -20,11 +20,6 @@ describe("error handling", () => {
       headers: new Headers(),
     });
     await expect(client.getAccount()).rejects.toThrow(AuthenticationError);
-    try {
-      await client.getAccount();
-    } catch (err) {
-      // This won't reach because we already consumed the mock, but the above assert covers it
-    }
   });
 
   it("AuthenticationError has correct status and code", async () => {
@@ -52,11 +47,14 @@ describe("error handling", () => {
       ok: false,
       status: 422,
       statusText: "Unprocessable Entity",
-      json: async () => ({ code: "invalid_email", message: "The 'to' field must be a valid email" }),
+      json: async () => ({
+        code: "invalid_email",
+        message: "The 'to' field must be a valid email",
+      }),
       headers: new Headers(),
     });
     await expect(
-      client.sendEmail({ from: "s@e.com", to: "invalid", subject: "Test", text_body: "Hi" })
+      client.sendEmail({ from: "s@e.com", to: "invalid", subject: "Test", text_body: "Hi" }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -66,7 +64,10 @@ describe("error handling", () => {
       ok: false,
       status: 422,
       statusText: "Unprocessable Entity",
-      json: async () => ({ code: "invalid_email", message: "The 'to' field must be a valid email" }),
+      json: async () => ({
+        code: "invalid_email",
+        message: "The 'to' field must be a valid email",
+      }),
       headers: new Headers(),
     });
     try {
@@ -88,9 +89,9 @@ describe("error handling", () => {
       json: async () => ({ code: "rate_limit_exceeded", message: "Rate limit exceeded" }),
       headers: new Headers({ "retry-after": "60" }),
     });
-    await expect(client.sendEmail({ from: "s@e.com", to: "r@e.com", subject: "Test", text_body: "Hi" })).rejects.toThrow(
-      RateLimitError
-    );
+    await expect(
+      client.sendEmail({ from: "s@e.com", to: "r@e.com", subject: "Test", text_body: "Hi" }),
+    ).rejects.toThrow(RateLimitError);
   });
 
   it("RateLimitError includes retryAfter from header", async () => {
@@ -198,9 +199,7 @@ describe("error handling", () => {
       expect((err as ValidationError).message).toBe(
         "Domain 'some-unverified-domain.tld' is not verified.",
       );
-      expect((err as ValidationError).docsUrl).toBe(
-        "https://euromail.dev/docs/#request-format",
-      );
+      expect((err as ValidationError).docsUrl).toBe("https://euromail.dev/docs/#request-format");
     }
   });
 

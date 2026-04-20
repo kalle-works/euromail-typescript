@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 
 const mockFetch = vi.fn();
@@ -92,7 +92,14 @@ describe("getAnalyticsDomains", () => {
     const client = new EuroMail({ apiKey: "em_test_key" });
     const response = {
       data: [
-        { domain: "example.com", sent: 500, delivered: 480, bounced: 10, open_rate: 0.4, click_rate: 0.1 },
+        {
+          domain: "example.com",
+          sent: 500,
+          delivered: 480,
+          bounced: 10,
+          open_rate: 0.4,
+          click_rate: 0.1,
+        },
       ],
       period: { from: "2026-02-07", to: "2026-03-07", period: "30d" },
     };

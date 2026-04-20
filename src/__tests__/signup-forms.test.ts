@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 
 const mockFetch = vi.fn();
@@ -17,13 +17,12 @@ const sampleForm = {
   description: "Weekly news delivered to your inbox.",
   success_message: "Thank you for subscribing!",
   redirect_url: null,
-  custom_fields: [
-    { name: "first_name", label: "First Name", type: "text", required: true },
-  ],
+  custom_fields: [{ name: "first_name", label: "First Name", type: "text", required: true }],
   theme: {},
   is_active: true,
   form_url: "https://api.euromail.dev/subscribe/newsletter-a1b2c3",
-  embed_code: '<iframe src="https://api.euromail.dev/subscribe/newsletter-a1b2c3" width="100%" height="400" frameborder="0"></iframe>',
+  embed_code:
+    '<iframe src="https://api.euromail.dev/subscribe/newsletter-a1b2c3" width="100%" height="400" frameborder="0"></iframe>',
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-03-01T00:00:00Z",
 };
@@ -41,9 +40,7 @@ describe("createSignupForm", () => {
       list_id: "cl_001",
       title: "Subscribe to updates",
       description: "Weekly news delivered to your inbox.",
-      custom_fields: [
-        { name: "first_name", label: "First Name", type: "text", required: true },
-      ],
+      custom_fields: [{ name: "first_name", label: "First Name", type: "text", required: true }],
     });
     expect(result).toEqual(sampleForm);
     const [url, init] = mockFetch.mock.calls[0];

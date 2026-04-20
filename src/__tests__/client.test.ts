@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 
 const mockFetch = vi.fn();
@@ -24,7 +24,7 @@ describe("EuroMail constructor", () => {
     client.getAccount();
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("https://api.euromail.dev/v1/account"),
-      expect.anything()
+      expect.anything(),
     );
   });
 
@@ -42,7 +42,7 @@ describe("EuroMail constructor", () => {
     client.getAccount();
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("https://custom.api.com/v1/account"),
-      expect.anything()
+      expect.anything(),
     );
   });
 

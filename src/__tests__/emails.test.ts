@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 
 const mockFetch = vi.fn();
@@ -46,7 +46,15 @@ describe("sendEmail", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ data: { id: "email_002", message_id: "<m>", status: "queued", to: "u@e.com", created_at: "" } }),
+      json: async () => ({
+        data: {
+          id: "email_002",
+          message_id: "<m>",
+          status: "queued",
+          to: "u@e.com",
+          created_at: "",
+        },
+      }),
       headers: new Headers(),
     });
     await client.sendEmail({
@@ -54,7 +62,9 @@ describe("sendEmail", () => {
       to: "c@d.com",
       subject: "With attachment",
       text_body: "See attached",
-      attachments: [{ filename: "test.pdf", content: "base64data", content_type: "application/pdf" }],
+      attachments: [
+        { filename: "test.pdf", content: "base64data", content_type: "application/pdf" },
+      ],
     });
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.attachments).toHaveLength(1);
@@ -162,7 +172,10 @@ describe("listEmails", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ data: [], pagination: { page: 1, per_page: 20, total: 0, total_pages: 0 } }),
+      json: async () => ({
+        data: [],
+        pagination: { page: 1, per_page: 20, total: 0, total_pages: 0 },
+      }),
       headers: new Headers(),
     });
     await client.listEmails({ status: "delivered" });
