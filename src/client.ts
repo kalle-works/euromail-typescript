@@ -148,16 +148,22 @@ export class EuroMail {
 
   // ---- Account Methods ----
 
+  /** Get the currently authenticated account (billing plan, quota, usage). */
   async getAccount(): Promise<Account> {
     const result = await this.get<{ data: Account }>("/v1/account");
     return result.data;
   }
 
+  /** Export the account's data as a CSV string (GDPR data access). */
   async exportAccount(): Promise<string> {
     const response = await this.requestRaw("GET", "/v1/account/export");
     return response.text();
   }
 
+  /**
+   * Permanently delete the account and all associated data. Irreversible —
+   * all emails, contacts, templates, and API keys are removed.
+   */
   async deleteAccount(): Promise<void> {
     await this.delete("/v1/account");
   }
@@ -182,6 +188,10 @@ export class EuroMail {
     return this.post<SendBatchResponse>("/v1/emails/batch", params, options);
   }
 
+  /**
+   * Retrieve a single email with full metadata: events (sent, delivered,
+   * opened, clicked, bounced), rendered body, and recipient info.
+   */
   async getEmail(emailId: string): Promise<EmailDetail> {
     const result = await this.get<{ data: EmailDetail }>(
       `/v1/emails/${encodeURIComponent(emailId)}`,
@@ -189,6 +199,10 @@ export class EuroMail {
     return result.data;
   }
 
+  /**
+   * List emails, optionally filtered by status. Returns a single page; use
+   * {@link paginateItems} to iterate across all pages automatically.
+   */
   async listEmails(params?: ListEmailsParams): Promise<PaginatedResponse<Email>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
@@ -197,6 +211,10 @@ export class EuroMail {
     return this.get<PaginatedResponse<Email>>(`/v1/emails?${query.toString()}`);
   }
 
+  /**
+   * Cancel a scheduled email before it is sent. No-op if the email has
+   * already been dispatched.
+   */
   async cancelScheduledEmail(emailId: string): Promise<SendEmailResponse> {
     const result = await this.post<{ data: SendEmailResponse }>(
       `/v1/emails/${encodeURIComponent(emailId)}/cancel`,
@@ -205,6 +223,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Per-link click statistics for an email (requires click tracking enabled). */
   async getEmailLinks(emailId: string): Promise<LinkClickStat[]> {
     const result = await this.get<{ data: LinkClickStat[] }>(
       `/v1/emails/${encodeURIComponent(emailId)}/links`,
@@ -212,18 +231,31 @@ export class EuroMail {
     return result.data;
   }
 
-  async sendBroadcast(params: BroadcastParams): Promise<BroadcastResponse> {
-    const result = await this.post<{ data: BroadcastResponse }>("/v1/emails/broadcast", params);
+  /**
+   * Send a broadcast (newsletter-style) to a contact list. Pass
+   * `options.idempotencyKey` for safe retries.
+   */
+  async sendBroadcast(
+    params: BroadcastParams,
+    options?: RequestOptions,
+  ): Promise<BroadcastResponse> {
+    const result = await this.post<{ data: BroadcastResponse }>(
+      "/v1/emails/broadcast",
+      params,
+      options,
+    );
     return result.data;
   }
 
   // ---- Template Methods ----
 
+  /** Create a reusable email template with optional variables. */
   async createTemplate(params: CreateTemplateParams): Promise<Template> {
     const result = await this.post<{ data: Template }>("/v1/templates", params);
     return result.data;
   }
 
+  /** Get a template by id. */
   async getTemplate(templateId: string): Promise<Template> {
     const result = await this.get<{ data: Template }>(
       `/v1/templates/${encodeURIComponent(templateId)}`,
@@ -231,6 +263,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Update an existing template's subject, HTML, or variables. */
   async updateTemplate(templateId: string, params: UpdateTemplateParams): Promise<Template> {
     const result = await this.put<{ data: Template }>(
       `/v1/templates/${encodeURIComponent(templateId)}`,
@@ -239,10 +272,12 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Delete a template permanently. */
   async deleteTemplate(templateId: string): Promise<void> {
     await this.delete(`/v1/templates/${encodeURIComponent(templateId)}`);
   }
 
+  /** List templates (paginated). Use {@link paginateItems} to auto-advance pages. */
   async listTemplates(params?: ListParams): Promise<PaginatedResponse<Template>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
@@ -252,16 +287,27 @@ export class EuroMail {
 
   // ---- Domain Methods ----
 
+  /**
+   * Register a sending domain. The response contains DNS records (SPF, DKIM,
+   * DMARC) that must be added to the domain's zone before {@link verifyDomain}
+   * will succeed.
+   */
   async addDomain(domain: string): Promise<Domain> {
     const result = await this.post<{ data: Domain }>("/v1/domains", { domain });
     return result.data;
   }
 
+  /** Get a domain and its current verification state. */
   async getDomain(domainId: string): Promise<Domain> {
     const result = await this.get<{ data: Domain }>(`/v1/domains/${encodeURIComponent(domainId)}`);
     return result.data;
   }
 
+  /**
+   * Check DNS and mark the domain verified if SPF/DKIM/DMARC records are
+   * correctly published. Safe to call repeatedly while waiting for DNS
+   * propagation.
+   */
   async verifyDomain(domainId: string): Promise<DomainVerificationResult> {
     const result = await this.post<{ data: DomainVerificationResult }>(
       `/v1/domains/${encodeURIComponent(domainId)}/verify`,
@@ -270,10 +316,12 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Remove a sending domain. In-flight emails are not affected. */
   async deleteDomain(domainId: string): Promise<void> {
     await this.delete(`/v1/domains/${encodeURIComponent(domainId)}`);
   }
 
+  /** List sending domains (paginated). */
   async listDomains(params?: ListParams): Promise<PaginatedResponse<Domain>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
@@ -308,11 +356,17 @@ export class EuroMail {
 
   // ---- Webhook Methods ----
 
+  /**
+   * Subscribe a URL to webhook events (delivered, opened, clicked, bounced,
+   * complained). The response includes a signing secret used to verify
+   * inbound webhook requests.
+   */
   async createWebhook(params: CreateWebhookParams): Promise<Webhook> {
     const result = await this.post<{ data: Webhook }>("/v1/webhooks", params);
     return result.data;
   }
 
+  /** Get a webhook by id. */
   async getWebhook(webhookId: string): Promise<Webhook> {
     const result = await this.get<{ data: Webhook }>(
       `/v1/webhooks/${encodeURIComponent(webhookId)}`,
@@ -320,6 +374,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Update a webhook's URL or subscribed event types. */
   async updateWebhook(webhookId: string, params: UpdateWebhookParams): Promise<Webhook> {
     const result = await this.put<{ data: Webhook }>(
       `/v1/webhooks/${encodeURIComponent(webhookId)}`,
@@ -328,6 +383,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Send a synthetic event to the webhook URL to confirm it's reachable. */
   async testWebhook(webhookId: string): Promise<WebhookTestResponse> {
     const result = await this.post<{ data: WebhookTestResponse }>(
       `/v1/webhooks/${encodeURIComponent(webhookId)}/test`,
@@ -336,10 +392,12 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Unsubscribe a webhook. */
   async deleteWebhook(webhookId: string): Promise<void> {
     await this.delete(`/v1/webhooks/${encodeURIComponent(webhookId)}`);
   }
 
+  /** List all webhooks (paginated). */
   async listWebhooks(params?: ListParams): Promise<PaginatedResponse<Webhook>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
@@ -349,6 +407,11 @@ export class EuroMail {
 
   // ---- Suppression Methods ----
 
+  /**
+   * Add an address to the suppression list so future sends to it are blocked.
+   * Reasons: `"hard_bounce"`, `"complaint"`, `"fbl"`, `"manual"` (default),
+   * `"unsubscribe"`.
+   */
   async addSuppression(email: string, reason?: string): Promise<Suppression> {
     const result = await this.post<{ data: Suppression }>("/v1/suppressions", {
       email_address: email,
@@ -357,10 +420,12 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Remove an address from the suppression list. Sends to it will resume. */
   async deleteSuppression(email: string): Promise<void> {
     await this.delete(`/v1/suppressions/${encodeURIComponent(email)}`);
   }
 
+  /** List suppressed addresses (paginated). */
   async listSuppressions(params?: ListParams): Promise<PaginatedResponse<Suppression>> {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
@@ -370,16 +435,19 @@ export class EuroMail {
 
   // ---- Contact List Methods ----
 
+  /** Create a new contact list for newsletters and broadcasts. */
   async createContactList(params: CreateContactListParams): Promise<ContactList> {
     const result = await this.post<{ data: ContactList }>("/v1/contact-lists", params);
     return result.data;
   }
 
+  /** List all contact lists owned by the account. */
   async listContactLists(): Promise<ContactList[]> {
     const result = await this.get<{ data: ContactList[] }>("/v1/contact-lists");
     return result.data;
   }
 
+  /** Get a contact list by id. */
   async getContactList(listId: string): Promise<ContactList> {
     const result = await this.get<{ data: ContactList }>(
       `/v1/contact-lists/${encodeURIComponent(listId)}`,
@@ -387,6 +455,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Update a contact list's name or custom fields. */
   async updateContactList(listId: string, params: UpdateContactListParams): Promise<ContactList> {
     const result = await this.put<{ data: ContactList }>(
       `/v1/contact-lists/${encodeURIComponent(listId)}`,
@@ -395,10 +464,12 @@ export class EuroMail {
     return result.data;
   }
 
+  /** Delete a contact list and all its contacts. Irreversible. */
   async deleteContactList(listId: string): Promise<void> {
     await this.delete(`/v1/contact-lists/${encodeURIComponent(listId)}`);
   }
 
+  /** Add a single contact to a list. For many contacts, prefer {@link bulkAddContacts}. */
   async addContact(listId: string, params: AddContactParams): Promise<Contact> {
     const result = await this.post<{ data: Contact }>(
       `/v1/contact-lists/${encodeURIComponent(listId)}/contacts`,
@@ -407,6 +478,10 @@ export class EuroMail {
     return result.data;
   }
 
+  /**
+   * Add many contacts to a list in one request. Returns per-contact status
+   * (created vs. skipped/invalid) — partial success is expected.
+   */
   async bulkAddContacts(
     listId: string,
     params: BulkAddContactsParams,
@@ -418,6 +493,7 @@ export class EuroMail {
     return result.data;
   }
 
+  /** List contacts in a list (paginated), optionally filtered by status. */
   async listContacts(
     listId: string,
     params?: ListContactsParams,
@@ -431,6 +507,7 @@ export class EuroMail {
     );
   }
 
+  /** Remove a contact from a list by email. */
   async removeContact(listId: string, email: string): Promise<void> {
     await this.delete(
       `/v1/contact-lists/${encodeURIComponent(listId)}/contacts/${encodeURIComponent(email)}`,
@@ -697,6 +774,11 @@ export class EuroMail {
 
   // ---- Email Validation Methods ----
 
+  /**
+   * Check whether an address has valid syntax, a real MX record, and is not
+   * on known disposable or role-based block lists. Useful for cleaning
+   * contact lists before a broadcast.
+   */
   async validateEmail(email: string): Promise<EmailValidation> {
     return this.post<EmailValidation>("/v1/validate", { email });
   }
@@ -758,11 +840,17 @@ export class EuroMail {
 
   // ---- Agent Mailbox Methods ----
 
+  /**
+   * Create an inbound mailbox for an AI agent. Messages arrive via the
+   * server's queue and are consumed with {@link waitForNextMessage} +
+   * {@link ackMessage} / {@link nackMessage}.
+   */
   async createMailbox(params?: CreateAgentMailboxParams): Promise<AgentMailbox> {
     const result = await this.post<{ data: AgentMailbox }>("/v1/agent-mailboxes", params ?? {});
     return result.data;
   }
 
+  /** List all agent mailboxes. Uses limit/offset pagination. */
   async listMailboxes(params?: ListAgentMailboxesParams): Promise<AgentMailbox[]> {
     const query = new URLSearchParams();
     if (params?.limit !== undefined) query.set("limit", String(params.limit));
@@ -857,6 +945,10 @@ export class EuroMail {
     );
   }
 
+  /**
+   * Acknowledge a leased message as successfully processed. Releases the
+   * lease and marks the message as handled.
+   */
   async ackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
     await this.post(
       `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/ack`,
@@ -864,11 +956,60 @@ export class EuroMail {
     );
   }
 
+  /**
+   * Negative-acknowledge a leased message. Releases the lease and returns
+   * the message to the queue for another consumer to process.
+   */
   async nackMessage(mailboxId: string, messageId: string, leaseToken: string): Promise<void> {
     await this.post(
       `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/nack`,
       { lease_token: leaseToken },
     );
+  }
+
+  // ---- Pagination Helpers ----
+
+  /**
+   * Iterate through a paginated list endpoint one page at a time. The fetcher
+   * receives `{ page, per_page }` and must return a {@link PaginatedResponse}.
+   * Iteration stops after the last page (`page >= pagination.total_pages`).
+   *
+   * @example
+   * for await (const page of client.paginate((p) => client.listEmails({ ...p, status: "delivered" }))) {
+   *   console.log(`page ${page.pagination.page} of ${page.pagination.total_pages}`);
+   *   for (const email of page.data) process(email);
+   * }
+   */
+  async *paginate<T>(
+    fetcher: (params: { page: number; per_page: number }) => Promise<PaginatedResponse<T>>,
+    options?: { perPage?: number; startPage?: number },
+  ): AsyncGenerator<PaginatedResponse<T>, void, unknown> {
+    const per_page = options?.perPage ?? 50;
+    let page = options?.startPage ?? 1;
+    while (true) {
+      const result = await fetcher({ page, per_page });
+      yield result;
+      if (page >= result.pagination.total_pages || result.data.length === 0) return;
+      page++;
+    }
+  }
+
+  /**
+   * Iterate through every item of a paginated list endpoint, auto-advancing
+   * pages as you consume it.
+   *
+   * @example
+   * for await (const email of client.paginateItems((p) => client.listEmails({ ...p, status: "bounced" }))) {
+   *   console.log(email.id);
+   * }
+   */
+  async *paginateItems<T>(
+    fetcher: (params: { page: number; per_page: number }) => Promise<PaginatedResponse<T>>,
+    options?: { perPage?: number; startPage?: number },
+  ): AsyncGenerator<T, void, unknown> {
+    for await (const page of this.paginate(fetcher, options)) {
+      for (const item of page.data) yield item;
+    }
   }
 
   // ---- HTTP Helpers ----
