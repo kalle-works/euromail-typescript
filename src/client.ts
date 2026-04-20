@@ -1,4 +1,5 @@
 import { EuroMailError } from "./errors.js";
+import { SDK_VERSION } from "./version.js";
 import type {
   Account,
   SendEmailParams,
@@ -87,6 +88,7 @@ export interface EuroMailConfig {
 
 const DEFAULT_BASE_URL = "https://api.euromail.dev";
 const DEFAULT_TIMEOUT = 30_000;
+const USER_AGENT = `euromail-sdk-js/${SDK_VERSION}`;
 
 function resolveBaseUrl(explicit?: string): string {
   if (explicit) return explicit;
@@ -543,9 +545,16 @@ export class EuroMail {
 
   async listNewsletters(params?: ListParams): Promise<Newsletter[]> {
     const query = new URLSearchParams();
-    if (params?.page) query.set("limit", String((params.per_page ?? 20)));
-    if (params?.page) query.set("offset", String(((params.page ?? 1) - 1) * (params.per_page ?? 20)));
-    const result = await this.get<{ data: Newsletter[] }>(`/v1/newsletters?${query.toString()}`);
+    if (params?.page !== undefined || params?.per_page !== undefined) {
+      const perPage = params.per_page ?? 20;
+      const page = params.page ?? 1;
+      query.set("limit", String(perPage));
+      query.set("offset", String((page - 1) * perPage));
+    }
+    const qs = query.toString();
+    const result = await this.get<{ data: Newsletter[] }>(
+      `/v1/newsletters${qs ? `?${qs}` : ""}`,
+    );
     return result.data;
   }
 
@@ -739,6 +748,7 @@ export class EuroMail {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           Accept: "application/json",
+          "User-Agent": USER_AGENT,
         },
         signal: controller.signal,
       });
@@ -795,6 +805,7 @@ export class EuroMail {
     try {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${this.apiKey}`,
+        "User-Agent": USER_AGENT,
       };
 
       const init: RequestInit = {
@@ -830,6 +841,7 @@ export class EuroMail {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${this.apiKey}`,
         Accept: "application/json",
+        "User-Agent": USER_AGENT,
       };
 
       const init: RequestInit = {

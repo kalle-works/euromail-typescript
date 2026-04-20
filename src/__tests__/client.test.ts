@@ -71,6 +71,19 @@ describe("EuroMail constructor", () => {
     const [, init] = mockFetch.mock.calls[0];
     expect(init.headers.Accept).toBe("application/json");
   });
+
+  it("sends User-Agent header identifying the SDK", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { id: "acct_1" } }),
+      headers: new Headers(),
+    });
+    await client.getAccount();
+    const [, init] = mockFetch.mock.calls[0];
+    expect(init.headers["User-Agent"]).toMatch(/^euromail-sdk-js\/\d+\.\d+\.\d+/);
+  });
 });
 
 describe("getAccount", () => {
