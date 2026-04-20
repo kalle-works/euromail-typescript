@@ -1,5 +1,5 @@
 export { EuroMail } from "./client.js";
-export type { EuroMailConfig } from "./client.js";
+export type { EuroMailConfig, RequestOptions } from "./client.js";
 
 export {
   EuroMailError,

@@ -84,11 +84,27 @@ export interface EuroMailConfig {
   apiKey?: string;
   baseUrl?: string;
   timeout?: number;
+  /** Maximum automatic retries for network errors, 429, and 5xx responses. Default 2. */
+  maxRetries?: number;
+  /** Base delay (ms) for exponential backoff between retries. Default 200. */
+  retryBaseDelayMs?: number;
+}
+
+export interface RequestOptions {
+  /** Per-call idempotency key sent as `Idempotency-Key` header. Enables safe POST retries. */
+  idempotencyKey?: string;
+  /** Abort signal for cancellation. Combined with the internal timeout. */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_BASE_URL = "https://api.euromail.dev";
 const DEFAULT_TIMEOUT = 30_000;
+const DEFAULT_MAX_RETRIES = 2;
+const DEFAULT_RETRY_BASE_MS = 200;
+const MAX_RETRY_DELAY_MS = 10_000;
 const USER_AGENT = `euromail-sdk-js/${SDK_VERSION}`;
+const RETRIABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE", "OPTIONS"]);
 
 function resolveBaseUrl(explicit?: string): string {
   if (explicit) return explicit;
@@ -102,6 +118,8 @@ export class EuroMail {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly timeout: number;
+  private readonly maxRetries: number;
+  private readonly retryBaseDelayMs: number;
 
   constructor(config: EuroMailConfig = {}) {
     const resolvedApiKey =
@@ -119,6 +137,8 @@ export class EuroMail {
       console.warn("WARNING: EuroMail base URL does not use HTTPS. API keys will be sent in cleartext.");
     }
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
+    this.maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES);
+    this.retryBaseDelayMs = Math.max(0, config.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_MS);
   }
 
   // ---- Account Methods ----
@@ -139,13 +159,32 @@ export class EuroMail {
 
   // ---- Email Methods ----
 
-  async sendEmail(params: SendEmailParams): Promise<SendEmailResponse> {
-    const result = await this.post<{ data: SendEmailResponse }>("/v1/emails", params);
+  /**
+   * Send a transactional email. Pass `options.idempotencyKey` to allow the SDK
+   * to safely retry on transient failures (network errors, 429, 5xx); without
+   * a key, POSTs are sent once and not retried.
+   */
+  async sendEmail(
+    params: SendEmailParams,
+    options?: RequestOptions,
+  ): Promise<SendEmailResponse> {
+    const result = await this.post<{ data: SendEmailResponse }>(
+      "/v1/emails",
+      params,
+      options,
+    );
     return result.data;
   }
 
-  async sendBatch(params: SendBatchParams): Promise<SendBatchResponse> {
-    return this.post<SendBatchResponse>("/v1/emails/batch", params);
+  /**
+   * Send a batch of emails in one request. Pass `options.idempotencyKey` to
+   * allow the SDK to safely retry on transient failures.
+   */
+  async sendBatch(
+    params: SendBatchParams,
+    options?: RequestOptions,
+  ): Promise<SendBatchResponse> {
+    return this.post<SendBatchResponse>("/v1/emails/batch", params, options);
   }
 
   async getEmail(emailId: string): Promise<EmailDetail> {
@@ -797,97 +836,139 @@ export class EuroMail {
     return params;
   }
 
-  private async requestRaw(method: string, path: string, body?: unknown): Promise<Response> {
+  private async doFetch(
+    method: string,
+    path: string,
+    body: unknown | undefined,
+    options: RequestOptions & { acceptJson: boolean },
+  ): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const idempotencyKey = options.idempotencyKey;
+    const canRetry = IDEMPOTENT_METHODS.has(method) || idempotencyKey !== undefined;
+    const maxAttempts = canRetry ? this.maxRetries + 1 : 1;
 
-    try {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const isLastAttempt = attempt + 1 >= maxAttempts;
+      const { signal, cleanup } = this.buildSignal(options.signal);
+
       const headers: Record<string, string> = {
         Authorization: `Bearer ${this.apiKey}`,
         "User-Agent": USER_AGENT,
       };
+      if (options.acceptJson) headers["Accept"] = "application/json";
+      if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
-      const init: RequestInit = {
-        method,
-        headers,
-        signal: controller.signal,
-      };
-
+      const init: RequestInit = { method, headers, signal };
       if (body !== undefined) {
         headers["Content-Type"] = "application/json";
         headers["Accept"] = "application/json";
         init.body = JSON.stringify(body);
       }
 
-      const response = await fetch(url, init);
+      let response: Response;
+      try {
+        response = await fetch(url, init);
+      } catch (err) {
+        cleanup();
+        if (options.signal?.aborted || isLastAttempt) throw err;
+        await this.sleep(this.backoffDelay(attempt, null));
+        continue;
+      }
+      cleanup();
 
-      if (!response.ok) {
-        throw await EuroMailError.fromResponse(response);
+      if (response.ok) return response;
+
+      if (RETRIABLE_STATUSES.has(response.status) && !isLastAttempt) {
+        const retryAfter = parseRetryAfterSeconds(response.headers.get("retry-after"));
+        await this.sleep(this.backoffDelay(attempt, retryAfter));
+        continue;
       }
 
-      return response;
-    } finally {
-      clearTimeout(timer);
+      throw await EuroMailError.fromResponse(response);
     }
+
+    // Unreachable: the loop either returns, throws, or continues for exactly maxAttempts iterations.
+    throw new Error("euromail: retry loop exited without result");
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+  private buildSignal(userSignal?: AbortSignal): { signal: AbortSignal; cleanup: () => void } {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
+    let onUserAbort: (() => void) | null = null;
 
-    try {
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${this.apiKey}`,
-        Accept: "application/json",
-        "User-Agent": USER_AGENT,
-      };
-
-      const init: RequestInit = {
-        method,
-        headers,
-        signal: controller.signal,
-      };
-
-      if (body !== undefined) {
-        headers["Content-Type"] = "application/json";
-        init.body = JSON.stringify(body);
+    if (userSignal) {
+      if (userSignal.aborted) {
+        controller.abort();
+      } else {
+        onUserAbort = () => controller.abort();
+        userSignal.addEventListener("abort", onUserAbort, { once: true });
       }
-
-      const response = await fetch(url, init);
-
-      if (!response.ok) {
-        throw await EuroMailError.fromResponse(response);
-      }
-
-      if (response.status === 204) {
-        return undefined as T;
-      }
-
-      return (await response.json()) as T;
-    } finally {
-      clearTimeout(timer);
     }
+
+    return {
+      signal: controller.signal,
+      cleanup: () => {
+        clearTimeout(timer);
+        if (userSignal && onUserAbort) userSignal.removeEventListener("abort", onUserAbort);
+      },
+    };
   }
 
-  private get<T>(path: string): Promise<T> {
-    return this.request<T>("GET", path);
+  private backoffDelay(attempt: number, retryAfterSeconds: number | null): number {
+    if (retryAfterSeconds !== null) {
+      return Math.min(retryAfterSeconds * 1000, MAX_RETRY_DELAY_MS);
+    }
+    const exp = this.retryBaseDelayMs * Math.pow(2, attempt);
+    const jitter = Math.random() * this.retryBaseDelayMs;
+    return Math.min(exp + jitter, MAX_RETRY_DELAY_MS);
   }
 
-  private post<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("POST", path, body);
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private put<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("PUT", path, body);
+  private requestRaw(method: string, path: string, body?: unknown): Promise<Response> {
+    return this.doFetch(method, path, body, { acceptJson: false });
   }
 
-  private patch<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("PATCH", path, body);
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    const response = await this.doFetch(method, path, body, { ...options, acceptJson: true });
+    if (response.status === 204) return undefined as T;
+    return (await response.json()) as T;
   }
 
-  private delete(path: string): Promise<void> {
-    return this.request<void>("DELETE", path);
+  private get<T>(path: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>("GET", path, undefined, options);
   }
+
+  private post<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>("POST", path, body, options);
+  }
+
+  private put<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>("PUT", path, body, options);
+  }
+
+  private patch<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>("PATCH", path, body, options);
+  }
+
+  private delete(path: string, options?: RequestOptions): Promise<void> {
+    return this.request<void>("DELETE", path, undefined, options);
+  }
+}
+
+function parseRetryAfterSeconds(header: string | null): number | null {
+  if (!header) return null;
+  const asInt = parseInt(header, 10);
+  if (!isNaN(asInt)) return asInt;
+  const asDate = Date.parse(header);
+  if (isNaN(asDate)) return null;
+  const seconds = Math.max(0, Math.ceil((asDate - Date.now()) / 1000));
+  return seconds;
 }
