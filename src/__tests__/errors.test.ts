@@ -141,4 +141,84 @@ describe("error handling", () => {
       expect((err as EuroMailError).message).toBe("Bad Gateway");
     }
   });
+
+  it("parses nested error body and preserves server message", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => ({
+        error: {
+          code: "internal_error",
+          message: "Database connection failed",
+          type: "server_error",
+          docs_url: "https://euromail.dev/docs/errors",
+        },
+      }),
+      headers: new Headers(),
+    });
+    try {
+      await client.getAccount();
+    } catch (err) {
+      expect(err).toBeInstanceOf(EuroMailError);
+      expect((err as EuroMailError).status).toBe(500);
+      expect((err as EuroMailError).code).toBe("internal_error");
+      expect((err as EuroMailError).message).toBe("Database connection failed");
+      expect((err as EuroMailError).docsUrl).toBe("https://euromail.dev/docs/errors");
+    }
+  });
+
+  it("routes HTTP 400 with validation_error type to ValidationError", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      json: async () => ({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Domain 'some-unverified-domain.tld' is not verified.",
+          type: "validation_error",
+          docs_url: "https://euromail.dev/docs/#request-format",
+        },
+      }),
+      headers: new Headers(),
+    });
+    try {
+      await client.sendEmail({
+        from: "noreply@some-unverified-domain.tld",
+        to: "r@e.com",
+        subject: "x",
+        html_body: "<p>x</p>",
+      });
+    } catch (err) {
+      expect(err).toBeInstanceOf(ValidationError);
+      expect((err as ValidationError).code).toBe("VALIDATION_ERROR");
+      expect((err as ValidationError).message).toBe(
+        "Domain 'some-unverified-domain.tld' is not verified.",
+      );
+      expect((err as ValidationError).docsUrl).toBe(
+        "https://euromail.dev/docs/#request-format",
+      );
+    }
+  });
+
+  it("still parses flat error body for forward compat", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => ({ code: "flat_error", message: "Flat body message" }),
+      headers: new Headers(),
+    });
+    try {
+      await client.getAccount();
+    } catch (err) {
+      expect(err).toBeInstanceOf(EuroMailError);
+      expect((err as EuroMailError).code).toBe("flat_error");
+      expect((err as EuroMailError).message).toBe("Flat body message");
+    }
+  });
 });
