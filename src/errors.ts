@@ -40,8 +40,7 @@ export class EuroMailError extends Error {
     const message = err.message ?? response.statusText;
     const type = err.type;
     const docsUrl = err.docs_url ?? null;
-    const requestId =
-      response.headers.get("x-request-id") ?? response.headers.get("request-id");
+    const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
     const status = response.status;
 
     if (type === "validation_error" || code === "VALIDATION_ERROR") {
@@ -102,6 +101,6 @@ export class RateLimitError extends EuroMailError {
 function parseRetryAfter(response: Response): number | null {
   const header = response.headers.get("retry-after");
   if (!header) return null;
-  const seconds = parseInt(header, 10);
-  return isNaN(seconds) ? null : seconds;
+  const seconds = Number.parseInt(header, 10);
+  return Number.isNaN(seconds) ? null : seconds;
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 import { EuroMailError } from "../errors.js";
 
@@ -50,9 +50,7 @@ describe("retry behavior", () => {
       maxRetries: 2,
       retryBaseDelayMs: 1,
     });
-    mockFetch.mockResolvedValue(
-      errorJson(500, { error: { code: "boom", message: "boom" } }),
-    );
+    mockFetch.mockResolvedValue(errorJson(500, { error: { code: "boom", message: "boom" } }));
 
     await expect(client.getAccount()).rejects.toThrow(EuroMailError);
     expect(mockFetch).toHaveBeenCalledTimes(3);
@@ -64,9 +62,7 @@ describe("retry behavior", () => {
       maxRetries: 2,
       retryBaseDelayMs: 1,
     });
-    mockFetch.mockResolvedValueOnce(
-      errorJson(500, { error: { code: "boom", message: "boom" } }),
-    );
+    mockFetch.mockResolvedValueOnce(errorJson(500, { error: { code: "boom", message: "boom" } }));
 
     await expect(
       client.sendEmail({ from: "a@b.com", to: "c@d.com", subject: "s", text_body: "t" }),
@@ -100,9 +96,7 @@ describe("retry behavior", () => {
       maxRetries: 2,
       retryBaseDelayMs: 1,
     });
-    mockFetch.mockResolvedValueOnce(
-      errorJson(400, { error: { code: "bad", message: "bad" } }),
-    );
+    mockFetch.mockResolvedValueOnce(errorJson(400, { error: { code: "bad", message: "bad" } }));
 
     await expect(client.getAccount()).rejects.toThrow(EuroMailError);
     expect(mockFetch).toHaveBeenCalledTimes(1);

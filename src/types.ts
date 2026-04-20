@@ -281,12 +281,7 @@ export interface Webhook {
   updated_at: string;
 }
 
-export type SuppressionReason =
-  | "hard_bounce"
-  | "complaint"
-  | "fbl"
-  | "manual"
-  | "unsubscribe";
+export type SuppressionReason = "hard_bounce" | "complaint" | "fbl" | "manual" | "unsubscribe";
 
 export interface Suppression {
   id: string;
