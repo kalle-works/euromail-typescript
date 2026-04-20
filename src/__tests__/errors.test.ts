@@ -204,6 +204,39 @@ describe("error handling", () => {
     }
   });
 
+  it("captures request id from response headers", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => ({ error: { code: "boom", message: "boom" } }),
+      headers: new Headers({ "x-request-id": "req_abc123" }),
+    });
+    try {
+      await client.getAccount();
+    } catch (err) {
+      expect(err).toBeInstanceOf(EuroMailError);
+      expect((err as EuroMailError).requestId).toBe("req_abc123");
+    }
+  });
+
+  it("falls back to request-id header variant", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => ({ error: { code: "boom", message: "boom" } }),
+      headers: new Headers({ "request-id": "req_xyz" }),
+    });
+    try {
+      await client.getAccount();
+    } catch (err) {
+      expect((err as EuroMailError).requestId).toBe("req_xyz");
+    }
+  });
+
   it("still parses flat error body for forward compat", async () => {
     const client = new EuroMail({ apiKey: "em_test_key" });
     mockFetch.mockResolvedValueOnce({
