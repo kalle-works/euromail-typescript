@@ -447,6 +447,46 @@ try {
 | | `exportAccount()` | Export all account data |
 | | `deleteAccount()` | Permanently delete account |
 
+## Agent Mailboxes
+
+Agent mailboxes provide persistent email addresses for AI agents with at-least-once message delivery via a lease/ack/nack model. The SDK wraps the full lifecycle natively:
+
+```typescript
+import { EuroMail } from "@euromail/sdk";
+
+const euromail = new EuroMail({ apiKey: process.env.EUROMAIL_API_KEY });
+
+// Create a mailbox
+const mailbox = await euromail.createMailbox({ display_name: "Support Agent" });
+
+// Long-poll loop for incoming messages
+while (true) {
+  const leased = await euromail.waitForNextMessage(mailbox.id, { timeout: 30 });
+  if (!leased) continue; // 408 timeout — no message arrived, poll again
+
+  const { data: msg, lease_token } = leased;
+  try {
+    await handle(msg);
+    // Ack when done — message will not be redelivered
+    await euromail.ackMessage(mailbox.id, msg.id, lease_token);
+  } catch (err) {
+    // Nack to return the message to the queue for retry
+    await euromail.nackMessage(mailbox.id, msg.id, lease_token);
+    throw err;
+  }
+}
+```
+
+Other mailbox methods:
+
+- `listMailboxes({ limit, offset })` — list mailboxes on the account
+- `getMailbox(id)` — fetch a single mailbox
+- `deleteMailbox(id)` — remove a mailbox
+- `listMessages(mailboxId, { status, limit, offset })` — list messages without acquiring a lease
+- `deleteMessage(mailboxId, messageId)` — permanently delete a message
+
+See the [Agent Mailboxes guide](https://euromail.dev/docs/guides/agent-mailboxes/) for the full flow, duplicate handling, and horizontal scaling patterns.
+
 ## Requirements
 
 - Node.js 18+ (uses native `fetch`)

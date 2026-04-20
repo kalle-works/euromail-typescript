@@ -819,3 +819,60 @@ export interface AuditLog {
   details: Record<string, unknown> | null;
   created_at: string;
 }
+
+// ---- Agent Mailbox Types ----
+
+export interface AgentMailbox {
+  id: string;
+  account_id: string;
+  local_part: string;
+  domain: string;
+  address: string;
+  display_name: string | null;
+  created_at: string;
+}
+
+export interface CreateAgentMailboxParams {
+  display_name?: string;
+  local_part?: string;
+  domain_id?: string;
+}
+
+export interface ListAgentMailboxesParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface MailboxMessage {
+  id: string;
+  mailbox_id: string;
+  account_id: string;
+  message_id: string | null;
+  mail_from: string;
+  from_header: string | null;
+  reply_to: string | null;
+  subject: string | null;
+  text_body: string | null;
+  html_body: string | null;
+  size_bytes: number;
+  thread_id: string | null;
+  labels: string[];
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface ListMailboxMessagesParams {
+  status?: "all" | "unread" | "read";
+  limit?: number;
+  offset?: number;
+}
+
+export interface WaitForNextMessageParams {
+  timeout?: number;
+}
+
+export interface LeasedMessage {
+  data: MailboxMessage;
+  lease_token: string;
+  lease_expires_at: string;
+}

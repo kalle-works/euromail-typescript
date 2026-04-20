@@ -10,7 +10,7 @@ beforeEach(() => {
 
 describe("EuroMail constructor", () => {
   it("throws if apiKey is empty", () => {
-    expect(() => new EuroMail({ apiKey: "" })).toThrow("apiKey is required");
+    expect(() => new EuroMail({ apiKey: "" })).toThrow("EuroMail API key is required");
   });
 
   it("uses default base URL", () => {
