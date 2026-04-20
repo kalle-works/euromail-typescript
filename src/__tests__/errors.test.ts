@@ -11,7 +11,7 @@ beforeEach(() => {
 
 describe("error handling", () => {
   it("throws AuthenticationError on 401", async () => {
-    const client = new EuroMail({ apiKey: "em_bad_key" });
+    const client = new EuroMail({ apiKey: "em_bad_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -28,7 +28,7 @@ describe("error handling", () => {
   });
 
   it("AuthenticationError has correct status and code", async () => {
-    const client = new EuroMail({ apiKey: "em_bad_key" });
+    const client = new EuroMail({ apiKey: "em_bad_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -47,7 +47,7 @@ describe("error handling", () => {
   });
 
   it("throws ValidationError on 422", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 422,
@@ -61,7 +61,7 @@ describe("error handling", () => {
   });
 
   it("ValidationError has correct code and message", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 422,
@@ -80,7 +80,7 @@ describe("error handling", () => {
   });
 
   it("throws RateLimitError on 429", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
@@ -94,7 +94,7 @@ describe("error handling", () => {
   });
 
   it("RateLimitError includes retryAfter from header", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
@@ -111,7 +111,7 @@ describe("error handling", () => {
   });
 
   it("throws generic EuroMailError on other status codes", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -123,7 +123,7 @@ describe("error handling", () => {
   });
 
   it("handles non-JSON error responses", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 502,
@@ -143,7 +143,7 @@ describe("error handling", () => {
   });
 
   it("parses nested error body and preserves server message", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -170,7 +170,7 @@ describe("error handling", () => {
   });
 
   it("routes HTTP 400 with validation_error type to ValidationError", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
@@ -205,7 +205,7 @@ describe("error handling", () => {
   });
 
   it("captures request id from response headers", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -222,7 +222,7 @@ describe("error handling", () => {
   });
 
   it("falls back to request-id header variant", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -238,7 +238,7 @@ describe("error handling", () => {
   });
 
   it("still parses flat error body for forward compat", async () => {
-    const client = new EuroMail({ apiKey: "em_test_key" });
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 0 });
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
