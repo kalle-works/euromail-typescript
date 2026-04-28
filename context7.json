@@ -1,0 +1,24 @@
+{
+  "projectTitle": "EuroMail TypeScript SDK",
+  "description": "Official TypeScript/Node.js SDK for EuroMail — GDPR-compliant transactional email API with EU data residency. Send emails, manage domains, templates, webhooks, contact lists, signup forms, newsletters, inbound email, and AI agent mailboxes.",
+  "folders": [
+    "src",
+    "examples"
+  ],
+  "excludeFolders": [
+    "node_modules",
+    "dist",
+    ".git"
+  ],
+  "rules": [
+    "Install with: npm install @euromail/sdk",
+    "Import: import { EuroMail } from '@euromail/sdk'",
+    "Initialize: const client = new EuroMail({ apiKey: process.env.EUROMAIL_API_KEY })",
+    "sendEmail() returns { id, status } where status is 'queued' (202 Accepted, not 201)",
+    "Use template_alias (string) not template_id when sending with a template",
+    "The 'from' field must use the apex domain (e.g. noreply@example.com), not the sending subdomain (noreply@em.example.com fails)",
+    "Webhook signature header: X-Euromail-Signature: t={timestamp},v1={hex} — verify with HMAC-SHA256",
+    "Agent mailbox: long-poll getNextMailboxMessage() → process → ackMailboxMessage() with lease_token",
+    "Batch: sendBatch() supports up to 500 emails per request"
+  ]
+}
