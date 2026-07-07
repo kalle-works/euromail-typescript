@@ -1,16 +1,8 @@
 {
   "projectTitle": "EuroMail TypeScript SDK",
   "description": "TypeScript/Node.js SDK for EuroMail — GDPR-compliant transactional email API (EU data residency, Finland). Send emails, manage domains, templates, webhooks, contact lists, and AI agent mailboxes.",
-  "folders": [
-    ".",
-    "src",
-    "examples"
-  ],
-  "excludeFolders": [
-    "node_modules",
-    "dist",
-    ".git"
-  ],
+  "folders": [".", "src", "examples"],
+  "excludeFolders": ["node_modules", "dist", ".git"],
   "rules": [
     "Install with: npm install @euromail/sdk",
     "Import: import { EuroMail } from '@euromail/sdk'",
