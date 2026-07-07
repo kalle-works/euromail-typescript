@@ -70,6 +70,39 @@ describe("sendEmail", () => {
     expect(body.attachments).toHaveLength(1);
     expect(body.attachments[0].filename).toBe("test.pdf");
   });
+
+  it("includes transactional, stream, send_at, and tracking in request body", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key" });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          id: "email_003",
+          message_id: "<m>",
+          status: "queued",
+          to: "u@e.com",
+          created_at: "",
+        },
+      }),
+      headers: new Headers(),
+    });
+    await client.sendEmail({
+      from: "a@b.com",
+      to: "c@d.com",
+      subject: "Marketing update",
+      text_body: "News",
+      transactional: false,
+      stream: "marketing",
+      send_at: "2026-08-01T00:00:00Z",
+      tracking: true,
+    });
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.transactional).toBe(false);
+    expect(body.stream).toBe("marketing");
+    expect(body.send_at).toBe("2026-08-01T00:00:00Z");
+    expect(body.tracking).toBe(true);
+  });
 });
 
 describe("sendBatch", () => {

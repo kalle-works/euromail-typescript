@@ -24,6 +24,28 @@ export interface SendEmailParams {
   metadata?: Record<string, string>;
   idempotency_key?: string;
   attachments?: Attachment[];
+  /** Schedule delivery for a future RFC 3339 timestamp. */
+  send_at?: string;
+  /**
+   * Per-email open/click tracking override. `false` disables tracking for
+   * this email even if the account has tracking enabled; `true` enables it
+   * even if the account default is off. Omit to use the account default.
+   */
+  tracking?: boolean;
+  /**
+   * Whether this is a transactional email (password reset, receipt,
+   * notification). When `true` (the server default), `List-Unsubscribe`
+   * headers are omitted so Gmail routes the message to Primary instead of
+   * Promotions. Set to `false` for marketing/newsletter emails that need
+   * one-click unsubscribe.
+   */
+  transactional?: boolean;
+  /**
+   * Message stream slug. Routes this email through the named stream,
+   * enabling separate reputation tracking for transactional vs. marketing
+   * email. Defaults to `"transactional"`; the stream must exist on the account.
+   */
+  stream?: string;
 }
 
 export interface SendBatchParams {
@@ -432,6 +454,16 @@ export interface BroadcastParams {
   headers?: Record<string, string>;
   tags?: string[];
   send_at?: string;
+  /** Per-broadcast open/click tracking override. Omit to use the account default. */
+  tracking?: boolean;
+  /**
+   * Whether this is a transactional broadcast. Defaults to `false` server-side
+   * because bulk sends are typically marketing email that needs
+   * `List-Unsubscribe` headers for Gmail/Yahoo compliance. Set to `true` only
+   * for operational bulk sends (e.g. account migration notices) where
+   * unsubscribe headers are inappropriate.
+   */
+  transactional?: boolean;
 }
 
 export interface BroadcastResponse {
