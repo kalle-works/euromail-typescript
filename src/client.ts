@@ -8,6 +8,7 @@ import type {
   ApiKey,
   ApiKeyCreated,
   AuditLog,
+  AutoResponderConfig,
   BillingPlan,
   BroadcastParams,
   BroadcastResponse,
@@ -36,6 +37,7 @@ import type {
   EmailValidation,
   GdprEraseResponse,
   GdprExportResponse,
+  GetMailboxThreadParams,
   InboundEmail,
   InboundRoute,
   InsightReport,
@@ -45,15 +47,23 @@ import type {
   ListContactsParams,
   ListDeadLettersParams,
   ListEmailsParams,
+  ListMailboxContactsParams,
   ListMailboxMessagesParams,
+  ListMailboxThreadsParams,
   ListParams,
+  MailboxAnalytics,
+  MailboxAttachmentUrl,
+  MailboxContact,
   MailboxMessage,
+  MailboxReplyResult,
   Newsletter,
   NewsletterSendResponse,
   Operation,
   PaginatedResponse,
   PortalParams,
   PortalResponse,
+  ReplyToMessageParams,
+  SearchMailboxMessagesParams,
   SendBatchParams,
   SendBatchResponse,
   SendEmailParams,
@@ -67,6 +77,7 @@ import type {
   TimeseriesResponse,
   TrackingDomainResponse,
   TrackingDomainVerification,
+  UpdateAutoResponderParams,
   UpdateContactListParams,
   UpdateInboundRouteParams,
   UpdateNewsletterParams,
@@ -965,6 +976,145 @@ export class EuroMail {
       `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/nack`,
       { lease_token: leaseToken },
     );
+  }
+
+  /**
+   * Send a reply to a mailbox message. The reply threads onto the original via
+   * `In-Reply-To`/`References`. Provide `text_body`, `html_body`, or both.
+   */
+  async replyToMessage(
+    mailboxId: string,
+    messageId: string,
+    params: ReplyToMessageParams,
+  ): Promise<MailboxReplyResult> {
+    const result = await this.post<{ data: MailboxReplyResult }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/reply`,
+      params,
+    );
+    return result.data;
+  }
+
+  /**
+   * List conversation threads in a mailbox. Each row is the latest message of
+   * a thread. Uses limit/offset pagination.
+   */
+  async listMailboxThreads(
+    mailboxId: string,
+    params?: ListMailboxThreadsParams,
+  ): Promise<MailboxMessage[]> {
+    const query = new URLSearchParams();
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    const result = await this.get<{ data: MailboxMessage[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/threads${qs ? `?${qs}` : ""}`,
+    );
+    return result.data;
+  }
+
+  /**
+   * Fetch every message in a single thread, in chronological (ascending)
+   * order. Uses limit/offset pagination.
+   */
+  async getMailboxThread(
+    mailboxId: string,
+    threadId: string,
+    params?: GetMailboxThreadParams,
+  ): Promise<MailboxMessage[]> {
+    const query = new URLSearchParams();
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    const result = await this.get<{ data: MailboxMessage[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/threads/${encodeURIComponent(threadId)}${qs ? `?${qs}` : ""}`,
+    );
+    return result.data;
+  }
+
+  /** Full-text search messages in a mailbox. `query` must be 1–500 chars. */
+  async searchMailboxMessages(
+    mailboxId: string,
+    query: string,
+    params?: SearchMailboxMessagesParams,
+  ): Promise<MailboxMessage[]> {
+    const search = new URLSearchParams();
+    search.set("q", query);
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.offset !== undefined) search.set("offset", String(params.offset));
+    const result = await this.get<{ data: MailboxMessage[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/search?${search.toString()}`,
+    );
+    return result.data;
+  }
+
+  /**
+   * Replace the labels on a message (full replace, not a merge). Returns the
+   * resulting label set.
+   */
+  async updateMessageLabels(
+    mailboxId: string,
+    messageId: string,
+    labels: string[],
+  ): Promise<string[]> {
+    const result = await this.put<{ data: { labels: string[] } }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/labels`,
+      { labels },
+    );
+    return result.data.labels;
+  }
+
+  /**
+   * Get download URLs for a message's attachments. Each URL is pre-signed and
+   * expires after `expires_in_seconds`. If the attachments were never
+   * persisted to object storage, the raw stored metadata is returned instead
+   * and `url`/`expires_in_seconds` may be absent.
+   */
+  async getMessageAttachmentUrls(
+    mailboxId: string,
+    messageId: string,
+  ): Promise<MailboxAttachmentUrl[]> {
+    const result = await this.get<{ data: MailboxAttachmentUrl[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/attachments`,
+    );
+    return result.data;
+  }
+
+  /** List distinct correspondents seen in a mailbox. Uses limit/offset pagination. */
+  async listMailboxContacts(
+    mailboxId: string,
+    params?: ListMailboxContactsParams,
+  ): Promise<MailboxContact[]> {
+    const query = new URLSearchParams();
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    const result = await this.get<{ data: MailboxContact[] }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/contacts${qs ? `?${qs}` : ""}`,
+    );
+    return result.data;
+  }
+
+  /** Get message/thread volume analytics for a mailbox. */
+  async getMailboxAnalytics(mailboxId: string): Promise<MailboxAnalytics> {
+    const result = await this.get<{ data: MailboxAnalytics }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/analytics`,
+    );
+    return result.data;
+  }
+
+  /**
+   * Enable/disable the mailbox auto-responder and/or replace its rule set.
+   * `rules` is an opaque JSON array of rule objects.
+   */
+  async updateAutoResponder(
+    mailboxId: string,
+    params: UpdateAutoResponderParams,
+  ): Promise<AutoResponderConfig> {
+    const result = await this.patch<{ data: AutoResponderConfig }>(
+      `/v1/agent-mailboxes/${encodeURIComponent(mailboxId)}/auto-responder`,
+      params,
+    );
+    return result.data;
   }
 
   // ---- Pagination Helpers ----

@@ -499,6 +499,15 @@ Other mailbox methods:
 - `deleteMailbox(id)` — remove a mailbox
 - `listMessages(mailboxId, { status, limit, offset })` — list messages without acquiring a lease
 - `deleteMessage(mailboxId, messageId)` — permanently delete a message
+- `replyToMessage(mailboxId, messageId, { text_body, html_body })` — send a threaded reply
+- `listMailboxThreads(mailboxId, { limit, offset })` — list conversation threads (latest message per thread)
+- `getMailboxThread(mailboxId, threadId, { limit, offset })` — fetch all messages in a thread, chronological
+- `searchMailboxMessages(mailboxId, query, { limit, offset })` — full-text search messages
+- `updateMessageLabels(mailboxId, messageId, labels)` — replace a message's label set
+- `getMessageAttachmentUrls(mailboxId, messageId)` — pre-signed download URLs for attachments
+- `listMailboxContacts(mailboxId, { limit, offset })` — distinct correspondents seen in the mailbox
+- `getMailboxAnalytics(mailboxId)` — message/thread volume metrics
+- `updateAutoResponder(mailboxId, { enabled, rules })` — configure the mailbox auto-responder
 
 See the [Agent Mailboxes guide](https://euromail.dev/docs/guides/agent-mailboxes/) for the full flow, duplicate handling, and horizontal scaling patterns.
 
