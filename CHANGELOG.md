@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-07
+
+### Added
+
+- Agent mailbox methods bringing the SDK to full parity with the server API: `replyToMessage`, `listMailboxThreads`, `getMailboxThread`, `searchMailboxMessages`, `updateMessageLabels`, `getMessageAttachmentUrls`, `listMailboxContacts`, `getMailboxAnalytics`, and `updateAutoResponder`.
+- Types: `ReplyToMessageParams`, `MailboxReplyResult`, `ListMailboxThreadsParams`, `GetMailboxThreadParams`, `SearchMailboxMessagesParams`, `MailboxAttachmentUrl`, `ListMailboxContactsParams`, `MailboxContact`, `MailboxAnalytics`, `UpdateAutoResponderParams`, `AutoResponderConfig`.
+- `MailboxMessage`: added `in_reply_to`, `references_header`, `attachments_stored`, `attachments_metadata`, `classification`, `classification_confidence`, `classified_at`, `leased_until`, and `lease_token` to match the full server row.
+- `AgentMailbox`: added `webhook_filters`, `auto_responder_enabled`, and `auto_responder_rules`.
+
 ## [0.3.0] - 2026-07-07
 
 ### Added

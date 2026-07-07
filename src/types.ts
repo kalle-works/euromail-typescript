@@ -856,6 +856,11 @@ export interface AgentMailbox {
   domain: string;
   address: string;
   display_name: string | null;
+  /** Optional inbound webhook routing filters. Opaque JSON, nullable. */
+  webhook_filters: unknown;
+  auto_responder_enabled: boolean;
+  /** Auto-responder rule set. Opaque JSON array, always present. */
+  auto_responder_rules: unknown;
   created_at: string;
 }
 
@@ -883,8 +888,18 @@ export interface MailboxMessage {
   html_body: string | null;
   size_bytes: number;
   thread_id: string | null;
+  in_reply_to: string | null;
+  references_header: string | null;
+  attachments_stored: boolean;
+  /** Stored attachment metadata. Opaque JSON, nullable. */
+  attachments_metadata: unknown;
+  classification: string | null;
+  classification_confidence: number | null;
+  classified_at: string | null;
   labels: string[];
   read_at: string | null;
+  leased_until: string | null;
+  lease_token: string | null;
   created_at: string;
 }
 
@@ -902,4 +917,78 @@ export interface LeasedMessage {
   data: MailboxMessage;
   lease_token: string;
   lease_expires_at: string;
+}
+
+export interface ReplyToMessageParams {
+  text_body?: string;
+  html_body?: string;
+}
+
+export interface MailboxReplyResult {
+  id: string;
+  status: string;
+  message_id: string;
+  to: string;
+  subject: string;
+}
+
+export interface ListMailboxThreadsParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface GetMailboxThreadParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchMailboxMessagesParams {
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * A downloadable attachment on a mailbox message. When the attachment was
+ * persisted to object storage, `url` is a pre-signed download link that
+ * expires after `expires_in_seconds` (typically 1 hour). If the attachment
+ * was never persisted, the server returns the raw stored metadata instead,
+ * which may omit `url`/`expires_in_seconds` and carry other fields.
+ */
+export interface MailboxAttachmentUrl {
+  filename: string;
+  content_type: string;
+  size: number;
+  url?: string;
+  expires_in_seconds?: number;
+  [key: string]: unknown;
+}
+
+export interface ListMailboxContactsParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface MailboxContact {
+  email: string;
+  display_name: string | null;
+  message_count: number;
+  last_seen: string;
+}
+
+export interface MailboxAnalytics {
+  total_messages: number;
+  unread_messages: number;
+  total_threads: number;
+  messages_today: number;
+  messages_this_week: number;
+}
+
+export interface UpdateAutoResponderParams {
+  enabled?: boolean;
+  rules?: unknown;
+}
+
+export interface AutoResponderConfig {
+  auto_responder_enabled: boolean;
+  auto_responder_rules: unknown;
 }
