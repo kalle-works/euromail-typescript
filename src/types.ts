@@ -314,6 +314,13 @@ export interface Suppression {
   created_at: string;
 }
 
+/** Result of a bulk suppression import (`POST /v1/suppressions/import`). */
+export interface ImportSuppressionsResult {
+  inserted: number;
+  total_requested: number;
+  invalid_addresses: string[];
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
