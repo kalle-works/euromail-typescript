@@ -7,7 +7,6 @@ export {
   RateLimitError,
   ValidationError,
 } from "./errors.js";
-
 export type {
   Account,
   AddContactParams,
@@ -59,6 +58,7 @@ export type {
   GdprExport,
   GdprExportResponse,
   GetMailboxThreadParams,
+  ImportSuppressionsResult,
   InboundEmail,
   InboundRoute,
   InsightArea,
@@ -117,3 +117,4 @@ export type {
   WebhookEventType,
   WebhookTestResponse,
 } from "./types.js";
+export { DEFAULT_TOLERANCE_SECONDS, verifyWebhookSignature } from "./webhooks.js";

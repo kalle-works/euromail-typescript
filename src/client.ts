@@ -38,6 +38,7 @@ import type {
   GdprEraseResponse,
   GdprExportResponse,
   GetMailboxThreadParams,
+  ImportSuppressionsResult,
   InboundEmail,
   InboundRoute,
   InsightReport,
@@ -442,6 +443,21 @@ export class EuroMail {
     if (params?.page) query.set("page", String(params.page));
     if (params?.per_page) query.set("per_page", String(params.per_page));
     return this.get<PaginatedResponse<Suppression>>(`/v1/suppressions?${query.toString()}`);
+  }
+
+  /** Bulk-import up to 10,000 addresses in one call. */
+  async importSuppressions(emails: string[], reason?: string): Promise<ImportSuppressionsResult> {
+    const result = await this.post<{ data: ImportSuppressionsResult }>(
+      "/v1/suppressions/import",
+      reason === undefined ? { emails } : { emails, reason },
+    );
+    return result.data;
+  }
+
+  /** Export the full suppression list as CSV. */
+  async exportSuppressions(): Promise<string> {
+    const response = await this.requestRaw("GET", "/v1/suppressions/export");
+    return response.text();
   }
 
   // ---- Contact List Methods ----

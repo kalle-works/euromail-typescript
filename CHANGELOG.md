@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-04
+
+### Added
+
+- `verifyWebhookSignature()` (with `DEFAULT_TOLERANCE_SECONDS`) verifies a webhook delivery's `X-Euromail-Signature` header — `t=<unix_timestamp>,v1=<hex_hmac_sha256>` over the raw body, constant-time compared via `node:crypto`'s `timingSafeEqual`, 300s default tolerance, and support for a secret-rotation window carrying more than one `v1` entry.
+- `importSuppressions()` / `exportSuppressions()`: bulk-import up to 10,000 addresses in one call (`POST /v1/suppressions/import`) and export the full suppression list as CSV (`GET /v1/suppressions/export`). New `ImportSuppressionsResult` type.
+
 ## [0.4.0] - 2026-07-07
 
 ### Added
