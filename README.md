@@ -513,7 +513,7 @@ See the [Agent Mailboxes guide](https://euromail.dev/docs/guides/agent-mailboxes
 
 ## Requirements
 
-- Node.js 18+ (uses native `fetch`)
+- Node.js 22.12+ (uses native `fetch`)
 - TypeScript 5.0+ (for type definitions)
 
 ## License
