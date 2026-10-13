@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { EuroMailError } from "./errors.js";
 import type {
   Account,
@@ -145,12 +146,29 @@ function withIdempotencyKey(
       `euromail: options.idempotencyKey ("${optionKey}") conflicts with params.idempotency_key ("${bodyKey}")`,
     );
   }
-  if (optionKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+  assertKeyLength(optionKey);
+  return { ...params, idempotency_key: optionKey };
+}
+
+/** The API measures keys in UTF-8 bytes, not UTF-16 code units. */
+function assertKeyLength(key: string): void {
+  if (Buffer.byteLength(key, "utf8") > MAX_IDEMPOTENCY_KEY_LENGTH) {
     throw new Error(
-      `euromail: idempotency key must be ${MAX_IDEMPOTENCY_KEY_LENGTH} characters or fewer`,
+      `euromail: idempotency key must be ${MAX_IDEMPOTENCY_KEY_LENGTH} bytes or fewer (UTF-8)`,
     );
   }
-  return { ...params, idempotency_key: optionKey };
+}
+
+/**
+ * Per-email key for a batch. Hashed and namespaced so it cannot collide with
+ * keys callers write themselves and always fits the length limit. Derived from
+ * position, so a retried batch must keep the same order.
+ */
+function batchEmailKey(key: string, index: number): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([key, index]))
+    .digest("hex");
+  return `euromail-batch-v1:${digest}`;
 }
 
 function resolveBaseUrl(explicit?: string): string {
@@ -235,18 +253,21 @@ export class EuroMail {
 
   /**
    * Send a batch of emails in one request. The API deduplicates per email, so
-   * `options.idempotencyKey` becomes `${key}:${index}` on every email that has
-   * no `idempotency_key` of its own. The request is retried on transient
-   * failures only when every email carries a key.
+   * `options.idempotencyKey` is turned into a derived per-email key (a hash of
+   * the key and the email's position) on every email that has no
+   * `idempotency_key` of its own. Retry a batch with the same emails in the
+   * same order. The request is retried on transient failures only when every
+   * email carries a key.
    */
   async sendBatch(params: SendBatchParams, options?: RequestOptions): Promise<SendBatchResponse> {
     const key = options?.idempotencyKey;
+    if (key !== undefined) assertKeyLength(key);
     const emails =
       key === undefined
         ? params.emails
         : params.emails.map((email, index) =>
             email.idempotency_key === undefined
-              ? withIdempotencyKey(email, `${key}:${index}`)
+              ? withIdempotencyKey(email, batchEmailKey(key, index))
               : email,
           );
     const body: SendBatchParams = { ...params, emails };
