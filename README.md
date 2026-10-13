@@ -120,6 +120,16 @@ await euromail.sendEmail({
 });
 ```
 
+A send with the same `idempotency_key` returns the original email instead of sending a new one. The key also turns on automatic retries: the SDK retries a send on network errors, 429 and 5xx only when the request carries a key, so a retry after a timeout cannot deliver the message twice. Without a key, sends go out once and are not retried.
+
+You can pass the key as an option instead. The SDK puts it in the request body, and throws if the body already has a different key:
+
+```typescript
+await euromail.sendEmail(params, { idempotencyKey: "payment-receipt-12345" });
+```
+
+For `sendBatch`, the option gives each email the key `<key>:<index>`, unless the email already has its own `idempotency_key`. Broadcasts have no idempotency on the API side and are never retried.
+
 ### Scheduling, tracking, and marketing sends
 
 ```typescript

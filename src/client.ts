@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { EuroMailError } from "./errors.js";
 import type {
   Account,
@@ -103,7 +104,14 @@ export interface EuroMailConfig {
 }
 
 export interface RequestOptions {
-  /** Per-call idempotency key sent as `Idempotency-Key` header. Enables safe POST retries. */
+  /**
+   * Idempotency key for `sendEmail` and `sendBatch`. The SDK writes it into the
+   * request body as `idempotency_key` (the only place the API reads it), which
+   * makes retries of that POST safe: the API returns the original email instead
+   * of sending it again. For `sendBatch`, email `i` gets `${idempotencyKey}:${i}`
+   * unless it already carries its own `idempotency_key`. Other POST methods
+   * ignore this option and are never retried.
+   */
   idempotencyKey?: string;
   /** Abort signal for cancellation. Combined with the internal timeout. */
   signal?: AbortSignal;
@@ -117,6 +125,51 @@ const MAX_RETRY_DELAY_MS = 10_000;
 const USER_AGENT = `euromail-sdk-js/${SDK_VERSION}`;
 const RETRIABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE", "OPTIONS"]);
+/** Server-side limit for `idempotency_key` (crates/euromail-api, routes/emails.rs). */
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
+
+/** Internal per-request options: `retrySafe` marks a POST whose body carries an idempotency key. */
+type InternalRequestOptions = RequestOptions & { retrySafe?: boolean };
+
+/**
+ * Merge `options.idempotencyKey` into a send body. An explicit body value wins
+ * when it matches; a different explicit value is a caller bug and throws.
+ */
+function withIdempotencyKey(
+  params: SendEmailParams,
+  optionKey: string | undefined,
+): SendEmailParams {
+  if (optionKey === undefined) return params;
+  const bodyKey = params.idempotency_key;
+  if (bodyKey !== undefined && bodyKey !== optionKey) {
+    throw new Error(
+      `euromail: options.idempotencyKey ("${optionKey}") conflicts with params.idempotency_key ("${bodyKey}")`,
+    );
+  }
+  assertKeyLength(optionKey);
+  return { ...params, idempotency_key: optionKey };
+}
+
+/** The API measures keys in UTF-8 bytes, not UTF-16 code units. */
+function assertKeyLength(key: string): void {
+  if (Buffer.byteLength(key, "utf8") > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new Error(
+      `euromail: idempotency key must be ${MAX_IDEMPOTENCY_KEY_LENGTH} bytes or fewer (UTF-8)`,
+    );
+  }
+}
+
+/**
+ * Per-email key for a batch. Hashed and namespaced so it cannot collide with
+ * keys callers write themselves and always fits the length limit. Derived from
+ * position, so a retried batch must keep the same order.
+ */
+function batchEmailKey(key: string, index: number): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([key, index]))
+    .digest("hex");
+  return `euromail-batch-v1:${digest}`;
+}
 
 function resolveBaseUrl(explicit?: string): string {
   if (explicit) return explicit;
@@ -183,21 +236,45 @@ export class EuroMail {
   // ---- Email Methods ----
 
   /**
-   * Send a transactional email. Pass `options.idempotencyKey` to allow the SDK
-   * to safely retry on transient failures (network errors, 429, 5xx); without
-   * a key, POSTs are sent once and not retried.
+   * Send a transactional email. Set `params.idempotency_key` (or
+   * `options.idempotencyKey`, which the SDK copies into the body) to let the
+   * SDK safely retry on transient failures (network errors, 429, 5xx); without
+   * a key, the POST is sent once and not retried. Throws if both are set and
+   * differ.
    */
   async sendEmail(params: SendEmailParams, options?: RequestOptions): Promise<SendEmailResponse> {
-    const result = await this.post<{ data: SendEmailResponse }>("/v1/emails", params, options);
+    const body = withIdempotencyKey(params, options?.idempotencyKey);
+    const result = await this.post<{ data: SendEmailResponse }>("/v1/emails", body, {
+      ...options,
+      retrySafe: body.idempotency_key !== undefined,
+    });
     return result.data;
   }
 
   /**
-   * Send a batch of emails in one request. Pass `options.idempotencyKey` to
-   * allow the SDK to safely retry on transient failures.
+   * Send a batch of emails in one request. The API deduplicates per email, so
+   * `options.idempotencyKey` is turned into a derived per-email key (a hash of
+   * the key and the email's position) on every email that has no
+   * `idempotency_key` of its own. Retry a batch with the same emails in the
+   * same order. The request is retried on transient failures only when every
+   * email carries a key.
    */
   async sendBatch(params: SendBatchParams, options?: RequestOptions): Promise<SendBatchResponse> {
-    return this.post<SendBatchResponse>("/v1/emails/batch", params, options);
+    const key = options?.idempotencyKey;
+    if (key !== undefined) assertKeyLength(key);
+    const emails =
+      key === undefined
+        ? params.emails
+        : params.emails.map((email, index) =>
+            email.idempotency_key === undefined
+              ? withIdempotencyKey(email, batchEmailKey(key, index))
+              : email,
+          );
+    const body: SendBatchParams = { ...params, emails };
+    return this.post<SendBatchResponse>("/v1/emails/batch", body, {
+      ...options,
+      retrySafe: emails.length > 0 && emails.every((e) => e.idempotency_key !== undefined),
+    });
   }
 
   /**
@@ -244,8 +321,8 @@ export class EuroMail {
   }
 
   /**
-   * Send a broadcast (newsletter-style) to a contact list. Pass
-   * `options.idempotencyKey` for safe retries.
+   * Send a broadcast (newsletter-style) to a contact list. The API has no
+   * idempotency for broadcasts, so this POST is sent once and never retried.
    */
   async sendBroadcast(
     params: BroadcastParams,
@@ -1192,11 +1269,13 @@ export class EuroMail {
     method: string,
     path: string,
     body: unknown | undefined,
-    options: RequestOptions & { acceptJson: boolean },
+    options: InternalRequestOptions & { acceptJson: boolean },
   ): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
-    const idempotencyKey = options.idempotencyKey;
-    const canRetry = IDEMPOTENT_METHODS.has(method) || idempotencyKey !== undefined;
+    // A non-idempotent method is retried only when the body carries an
+    // idempotency key the API dedupes on; otherwise a retry after a timeout
+    // could send the same email twice.
+    const canRetry = IDEMPOTENT_METHODS.has(method) || options.retrySafe === true;
     const maxAttempts = canRetry ? this.maxRetries + 1 : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -1208,7 +1287,6 @@ export class EuroMail {
         "User-Agent": USER_AGENT,
       };
       if (options.acceptJson) headers.Accept = "application/json";
-      if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
       const init: RequestInit = { method, headers, signal };
       if (body !== undefined) {
@@ -1287,7 +1365,7 @@ export class EuroMail {
     method: string,
     path: string,
     body?: unknown,
-    options: RequestOptions = {},
+    options: InternalRequestOptions = {},
   ): Promise<T> {
     const response = await this.doFetch(method, path, body, { ...options, acceptJson: true });
     if (response.status === 204) return undefined as T;
@@ -1298,7 +1376,7 @@ export class EuroMail {
     return this.request<T>("GET", path, undefined, options);
   }
 
-  private post<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+  private post<T>(path: string, body: unknown, options?: InternalRequestOptions): Promise<T> {
     return this.request<T>("POST", path, body, options);
   }
 
