@@ -86,8 +86,42 @@ describe("retry behavior", () => {
     );
     expect(result).toEqual({ id: "em_1" });
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    const [, init] = mockFetch.mock.calls[0];
-    expect(init.headers["Idempotency-Key"]).toBe("key_123");
+    // The API dedupes on the body field only, so every attempt must carry it there.
+    for (const [, init] of mockFetch.mock.calls) {
+      expect(JSON.parse(init.body).idempotency_key).toBe("key_123");
+    }
+  });
+
+  it("rejects an idempotencyKey option that conflicts with the body key", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key", retryBaseDelayMs: 1 });
+
+    await expect(
+      client.sendEmail(
+        { from: "a@b.com", to: "c@d.com", subject: "s", text_body: "t", idempotency_key: "a" },
+        { idempotencyKey: "b" },
+      ),
+    ).rejects.toThrow(/conflicts/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("retries a batch with a stable per-email idempotency_key, keeping explicit keys", async () => {
+    const client = new EuroMail({ apiKey: "em_test_key", maxRetries: 2, retryBaseDelayMs: 1 });
+    mockFetch
+      .mockResolvedValueOnce(errorJson(503, { error: { code: "x", message: "x" } }))
+      .mockResolvedValueOnce(okJson({ data: [], errors: [] }));
+    const email = { from: "a@b.com", to: "c@d.com", subject: "s", text_body: "t" };
+
+    await client.sendBatch(
+      { emails: [email, { ...email, idempotency_key: "own" }] },
+      { idempotencyKey: "batch_1" },
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    for (const [, init] of mockFetch.mock.calls) {
+      const keys = JSON.parse(init.body).emails.map(
+        (e: { idempotency_key?: string }) => e.idempotency_key,
+      );
+      expect(keys).toEqual(["batch_1:0", "own"]);
+    }
   });
 
   it("does not retry 4xx errors (except 429)", async () => {
