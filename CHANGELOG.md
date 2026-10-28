@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-28
+
+### Added
+
+- `Domain.detected_provider`: the DNS host detected for the domain (for example `"cloudflare"`), or `null` until the first DNS check.
+
+### Changed
+
+- `options.idempotencyKey` is now sent as the body field `idempotency_key`, which is what the API dedupes on. The SDK no longer sends the `Idempotency-Key` header, which the API never read.
+- A POST is retried only when its body carries an idempotency key. Sends with `params.idempotency_key` set now retry on 429, 5xx and network errors; before, they were sent once. `idempotencyKey` on other POST methods no longer turns on retries, and `sendBroadcast` is never retried.
+- `sendBatch` gives each email without its own key a key derived from the batch key and the email's position, so a retried batch must keep the same emails in the same order.
+- Passing an `options.idempotencyKey` that differs from `params.idempotency_key` throws before any request is made.
+
+### Fixed
+
+- The `User-Agent` header said `euromail-sdk-js/0.4.0` on every release since 0.4.0. It now names the installed version.
+
 ## [0.5.0] - 2026-09-04
 
 ### Added

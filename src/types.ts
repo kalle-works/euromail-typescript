@@ -244,6 +244,8 @@ export interface Domain {
   inbound_enabled: boolean;
   mx_verified_at: string | null;
   dns_records: Record<string, DnsRecord>;
+  /** DNS host detected for the domain (e.g. `"cloudflare"`), or `null` before the first check. */
+  detected_provider: string | null;
   verified_at: string | null;
   tracking_domain: string | null;
   tracking_domain_verified: boolean;
