@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EuroMail } from "../client.js";
 
@@ -72,7 +73,7 @@ describe("EuroMail constructor", () => {
     expect(init.headers.Accept).toBe("application/json");
   });
 
-  it("sends User-Agent header identifying the SDK", async () => {
+  it("sends a User-Agent naming the package version", async () => {
     const client = new EuroMail({ apiKey: "em_test_key" });
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -82,7 +83,10 @@ describe("EuroMail constructor", () => {
     });
     await client.getAccount();
     const [, init] = mockFetch.mock.calls[0];
-    expect(init.headers["User-Agent"]).toMatch(/^euromail-sdk-js\/\d+\.\d+\.\d+/);
+    const { version } = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    );
+    expect(init.headers["User-Agent"]).toBe(`euromail-sdk-js/${version}`);
   });
 });
 
