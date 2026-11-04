@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-04
+
+### Changed
+
+- `DomainAnalytics.open_rate` and `click_rate` can now be `null`. The API returns `null` when no delivered mail to that domain had open or click tracking, because 0% would say nobody opened it. This changes the field's type, so code that reads these fields needs updating.
+
+### Added
+
+- `DomainAnalytics.opens_tracked` and `clicks_tracked` show how many delivered emails each rate is out of.
+
 ## [0.6.0] - 2026-10-28
 
 ### Added
