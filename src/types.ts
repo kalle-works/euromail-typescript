@@ -676,8 +676,14 @@ export interface DomainAnalytics {
   sent: number;
   delivered: number;
   bounced: number;
-  open_rate: number;
-  click_rate: number;
+  /** Delivered emails to this domain that carried an open pixel. */
+  opens_tracked: number;
+  /** Delivered emails to this domain whose links were tracked. */
+  clicks_tracked: number;
+  /** `null` when no delivered email to this domain had open tracking. */
+  open_rate: number | null;
+  /** `null` when no delivered email to this domain had click tracking. */
+  click_rate: number | null;
 }
 
 export interface DomainAnalyticsResponse {

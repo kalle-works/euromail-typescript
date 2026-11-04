@@ -97,7 +97,9 @@ describe("getAnalyticsDomains", () => {
           sent: 500,
           delivered: 480,
           bounced: 10,
-          open_rate: 0.4,
+          opens_tracked: 0,
+          clicks_tracked: 480,
+          open_rate: null,
           click_rate: 0.1,
         },
       ],
@@ -112,6 +114,8 @@ describe("getAnalyticsDomains", () => {
     const result = await client.getAnalyticsDomains({ period: "30d", limit: 10 });
     expect(result.data).toHaveLength(1);
     expect(result.data[0].domain).toBe("example.com");
+    expect(result.data[0].open_rate).toBeNull();
+    expect(result.data[0].clicks_tracked).toBe(480);
     expect(mockFetch.mock.calls[0][0]).toContain("limit=10");
   });
 });
