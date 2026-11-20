@@ -106,6 +106,7 @@ export type {
   TrackingDomainVerification,
   UpdateAutoResponderParams,
   UpdateContactListParams,
+  UpdateDomainParams,
   UpdateInboundRouteParams,
   UpdateNewsletterParams,
   UpdateSignupFormParams,

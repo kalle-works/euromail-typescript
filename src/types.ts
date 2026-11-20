@@ -246,12 +246,20 @@ export interface Domain {
   dns_records: Record<string, DnsRecord>;
   /** DNS host detected for the domain (e.g. `"cloudflare"`), or `null` before the first check. */
   detected_provider: string | null;
+  /** When true, mail from this domain is never sent unencrypted; see {@link EuroMail.updateDomain}. */
+  require_tls: boolean;
   verified_at: string | null;
   tracking_domain: string | null;
   tracking_domain_verified: boolean;
   tracking_domain_verified_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Settings changeable through {@link EuroMail.updateDomain}. Omitted fields are left as they are. */
+export interface UpdateDomainParams {
+  /** Never send this domain's mail in plain text. A receiving server that offers no TLS gets no delivery. */
+  require_tls?: boolean;
 }
 
 export interface DnsRecord {
