@@ -173,6 +173,10 @@ if (verification.fully_verified) {
 // List all domains
 const domains = await euromail.listDomains({ page: 1, per_page: 25 });
 
+// Never send this domain's mail in plain text (needs the domains:manage scope)
+const updated = await euromail.updateDomain(domain.id, { require_tls: true });
+console.log(updated.require_tls); // true
+
 // Remove a domain
 await euromail.deleteDomain(domain.id);
 ```

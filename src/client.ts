@@ -81,6 +81,7 @@ import type {
   TrackingDomainVerification,
   UpdateAutoResponderParams,
   UpdateContactListParams,
+  UpdateDomainParams,
   UpdateInboundRouteParams,
   UpdateNewsletterParams,
   UpdateSignupFormParams,
@@ -401,6 +402,19 @@ export class EuroMail {
     const result = await this.post<{ data: DomainVerificationResult }>(
       `/v1/domains/${encodeURIComponent(domainId)}/verify`,
       {},
+    );
+    return result.data;
+  }
+
+  /**
+   * Change a domain's settings; only the fields given are sent. With
+   * `require_tls: true`, mail from this domain is never delivered in plain
+   * text. Needs the `domains:manage` scope.
+   */
+  async updateDomain(domainId: string, params: UpdateDomainParams): Promise<Domain> {
+    const result = await this.patch<{ data: Domain }>(
+      `/v1/domains/${encodeURIComponent(domainId)}`,
+      params,
     );
     return result.data;
   }

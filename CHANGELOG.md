@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-21
+
+### Added
+
+- `updateDomain(domainId, { require_tls })`: change a domain's settings. With `require_tls: true`, mail from the domain is never sent in plain text; a message to a server that offers no TLS fails instead. Only the fields given are sent. Needs the `domains:manage` scope.
+- `Domain.require_tls`: whether the domain requires TLS for delivery.
+
 ## [0.6.0] - 2026-10-28
 
 ### Added
